@@ -27,6 +27,11 @@ func parseConfig() helmishlib.Options {
 		profileName = *profileNameFlag
 	}
 
+	// Positional arg takes precedence
+	if flag.NArg() > 0 {
+		chartPath = flag.Arg(0)
+	}
+
 	// Default values if still empty
 	if chartPath == "" {
 		chartPath = "/default/chart/path"
