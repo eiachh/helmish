@@ -4,7 +4,7 @@ import (
 	"helmish/internal/renderer"
 )
 
-// Chart represents the Helm chart options
+// Chart represents the Helm chart data
 type Chart = renderer.Chart
 
 // Profile represents the profile options (public, minimal)
@@ -16,6 +16,22 @@ type Profile struct {
 type Options struct {
 	Chart   Chart
 	Profile Profile
+}
+
+// Helmish is the main library struct that holds the loaded chart
+type Helmish struct {
+	chart renderer.Chart
+}
+
+// NewHelmish creates a new Helmish instance by loading the chart from the given path
+func NewHelmish(chartPath string) (*Helmish, error) {
+	chart, err := renderer.LoadChart(chartPath)
+	if err != nil {
+		return nil, err
+	}
+	return &Helmish{
+		chart: chart,
+	}, nil
 }
 
 // loadProfile loads the profile from the default folder based on name
@@ -32,16 +48,14 @@ func loadProfile(name string) (renderer.Profile, error) {
 	return profile, nil
 }
 
-// Render calls the internal renderer to render the chart
-func Render(opts Options) (map[string]string, error) {
-	loadedProfile, err := loadProfile(opts.Profile.Name)
+// Render calls the internal renderer to render the chart using the loaded chart
+func (h *Helmish) Render(profile Profile) (map[string]string, error) {
+	loadedProfile, err := loadProfile(profile.Name)
 	if err != nil {
 		return nil, err
 	}
 	internalOpts := renderer.Options{
-		Chart: renderer.Chart{
-			Path: opts.Chart.Path,
-		},
+		Chart: h.chart,
 		Profile: loadedProfile,
 	}
 	return renderer.RenderChart(internalOpts)

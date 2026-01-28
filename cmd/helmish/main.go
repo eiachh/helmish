@@ -56,13 +56,17 @@ func (m model) View() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
-
 func main() {
-	// Parse config to get options
 	opts := parseConfig()
 
-	// Call the render function
-	rendered, err := helmishlib.Render(opts)
+	// Load the chart
+	helmish, err := helmishlib.NewHelmish(opts.Chart.Path)
+	if err != nil {
+		log.Fatalf("Error loading chart: %v", err)
+	}
+
+	// Render the chart
+	rendered, err := helmish.Render(opts.Profile)
 	if err != nil {
 		log.Fatal(err)
 	}
