@@ -8,6 +8,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/helmish",
             "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
             "args": ["./examples/simple-deployment-1/"]
         }
     ]

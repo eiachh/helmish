@@ -104,17 +104,6 @@ func LoadChart(path string) (Chart, error) {
 
 // RenderChart renders the Helm chart using the TUI
 func RenderChart(opts Options) (map[string]string, error) {
-	// For now, return the first element of YamlTemplates
-	var firstContent string
-	var firstFilename string
-	for filename, content := range opts.Chart.YamlTemplates {
-		firstContent = content
-		firstFilename = filename
-		break
-	}
-	if firstContent == "" {
-		// If no templates, return empty
-		return map[string]string{}, nil
-	}
-	return map[string]string{firstFilename: firstContent}, nil
+	// Return all rendered templates (for now, just the raw YamlTemplates as skeleton)
+	return opts.Chart.YamlTemplates, nil
 }
