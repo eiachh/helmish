@@ -10,10 +10,33 @@ import (
 	"helmish/pkg/helmishlib"
 )
 
+func renderToString(templates []helmishlib.RenderedTemplate) string {
+	var parts []string
+	for _, tmpl := range templates {
+		var lines []string
+		for _, block := range tmpl.Blocks {
+			lines = append(lines, block.Rendered())
+		}
+		parts = append(parts, strings.Join(lines, "\n"))
+	}
+	return strings.Join(parts, "\n---\n")
+}
+
+func renderRawToString(templates []helmishlib.RenderedTemplate) string {
+	var parts []string
+	for _, tmpl := range templates {
+		var lines []string
+		for _, block := range tmpl.Blocks {
+			lines = append(lines, block.Raw())
+		}
+		parts = append(parts, strings.Join(lines, "\n"))
+	}
+	return strings.Join(parts, "\n---\n")
+}
+
 type model struct {
-	left       string
-	right      string
-	rendered   map[string]string
+	rawContent map[string]string
+	rendered   map[string][]helmishlib.RenderedTemplate
 	showPopup  bool
 	selected   int
 	files      []string
@@ -45,7 +68,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				if m.selected >= 0 && m.selected < len(m.files) {
 					m.currentFile = m.files[m.selected]
-					m.right = m.rendered[m.currentFile]
 				}
 				m.showPopup = false
 			case "esc":
@@ -89,12 +111,13 @@ func (m model) renderMain() string {
 		Border(lipgloss.ThickBorder()).
 		Padding(1)
 
-	// Left panel: small Helm template
-	leftContent := "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Chart.Name }}\ndata:\n  key: {{ .Values.key }}"
+	// Left panel: raw content
+	leftContent := m.rawContent[m.currentFile]
 	left := leftStyle.Render(leftContent)
 
 	// Right panel: rendered content
-	right := rightStyle.Render(m.right)
+	rightContent := renderToString(m.rendered[m.currentFile])
+	right := rightStyle.Render(rightContent)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
@@ -198,14 +221,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Prepare raw content
+	rawContent := make(map[string]string)
+	for filename, templates := range rendered {
+		rawContent[filename] = renderRawToString(templates)
+	}
+
 	// Start the TUI
 	m := model{
-		left:     "",
-		right:    "",
-		rendered: rendered,
-		showPopup: false,
-		selected:  0,
-		files:     []string{},
+		rawContent: rawContent,
+		rendered:   rendered,
+		showPopup:  false,
+		selected:   0,
+		files:      []string{},
 	}
 
 	// Populate files list
@@ -217,7 +245,6 @@ func main() {
 	// Set initial current file to first
 	if len(m.files) > 0 {
 		m.currentFile = m.files[0]
-		m.right = rendered[m.currentFile]
 	}
 
 	p := tea.NewProgram(m)
