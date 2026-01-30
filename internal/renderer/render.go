@@ -5,46 +5,6 @@ import (
 	"path/filepath"
 )
 
-// Values holds the chart values files (filename -> content)
-type Values map[string]string
-
-// Metadata holds the chart metadata files (filename -> content)
-type Metadata map[string]string
-
-// YamlTemplates holds the YAML template files (filename -> content)
-type YamlTemplates map[string]string
-
-// TplFiles holds the template files (filename -> content)
-type TplFiles map[string]string
-
-// Chart represents the Helm chart data
-type Chart struct {
-	Path          string
-	Values        Values
-	Metadata      Metadata
-	YamlTemplates YamlTemplates
-	TplFiles      TplFiles
-}
-
-// Profile represents the profile options
-type Profile struct {
-	Name          string
-	Capabilities  Capabilities
-	// Add more fields as needed
-}
-
-// Capabilities represents Helm capabilities
-type Capabilities struct {
-	KubeVersion string
-	APIVersions []string
-}
-
-// Options holds the options for rendering
-type Options struct {
-	Chart   Chart
-	Profile Profile
-}
-
 // LoadChart loads the chart from the given path
 func LoadChart(path string) (Chart, error) {
 	chart := Chart{
@@ -103,7 +63,11 @@ func LoadChart(path string) (Chart, error) {
 }
 
 // RenderChart renders the Helm chart using the TUI
-func RenderChart(opts Options) (map[string]string, error) {
-	// Return all rendered templates (for now, just the raw YamlTemplates as skeleton)
-	return opts.Chart.YamlTemplates, nil
+func RenderChart(opts Options) (map[string][]RenderedTemplate, error) {
+	result := make(map[string][]RenderedTemplate)
+	for filename, content := range opts.Chart.YamlTemplates {
+		rendered := parseContent(content)
+		result[filename] = rendered
+	}
+	return result, nil
 }

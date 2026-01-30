@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+data:
+  static-value: "this is a static value"
+  single-line-template: {{ .Values.testVal1 }}
+{{ if and
+ .Values.condition1
+ .Values.condition2
+ }}
+  multiline-conditional: {{ .Values.someOtherVal }}
+{{ end }}
