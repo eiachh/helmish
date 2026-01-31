@@ -25,6 +25,12 @@ type Token = renderer.Token
 // TokenText is a constant for text tokens
 const TokenText = renderer.TokenText
 
+// TokenIf is a constant for if tokens
+const TokenIf = renderer.TokenIf
+
+// TokenEnd is a constant for end tokens
+const TokenEnd = renderer.TokenEnd
+
 // TokenAction is a constant for action tokens
 const TokenAction = renderer.TokenAction
 

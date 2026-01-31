@@ -1,4 +1,4 @@
 testVal1: "hello from single line template"
 condition1: true
-condition2: false
+condition2: true
 someOtherVal: "world from multiline if"

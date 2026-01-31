@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"strings"
@@ -245,28 +246,10 @@ func main() {
 		rawContent[filename] = renderRawToString(templates)
 	}
 
-	// Start the TUI
-	m := model{
-		rawContent: rawContent,
-		rendered:   rendered,
-		showPopup:  false,
-		selected:   0,
-		files:      []string{},
-	}
-
-	// Populate files list
-	for k := range rendered {
-		m.files = append(m.files, k)
-	}
-	sort.Strings(m.files)
-
-	// Set initial current file to first
-	if len(m.files) > 0 {
-		m.currentFile = m.files[0]
-	}
-
-	p := tea.NewProgram(m)
-	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
+	// Print rendered
+	for filename, tokensList := range rendered {
+		fmt.Printf("File: %s\n", filename)
+		fmt.Println(renderToString(tokensList))
+		fmt.Println("---")
 	}
 }

@@ -1,0 +1,6 @@
+staticText: "This is static text"
+condition1: true   # To show if branch
+condition2: true   # For embedded if
+content1: "Content from if branch"
+content2: "Content from embedded if"
+content3: "Content from embedded else"

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  staticBefore: {{ .Values.staticText }}
+  {{if .Values.condition1 }}
+  ifContent: {{ .Values.content1 }}
+  {{else}}
+  {{if .Values.condition2}}
+  embeddedIf: {{ .Values.content2 }}
+  {{else}}
+  embeddedElse: {{ .Values.content3 }}
+  {{end}}
+  {{end}}
+  staticAfter: {{ .Values.staticText }}
