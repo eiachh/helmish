@@ -1,0 +1,5 @@
+staticText: "first value"
+shouldShow: true
+shownText: "second value"
+shouldNotShow: false
+notShownText: "third value"

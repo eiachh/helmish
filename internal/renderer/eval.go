@@ -7,23 +7,65 @@ import (
 	"text/template"
 )
 
+// evalState holds the evaluation state for handling if/end blocks
+type evalState struct {
+	stack []bool
+}
+
+// newEvalState creates a new evaluation state with initial active state
+func newEvalState() *evalState {
+	return &evalState{stack: []bool{true}}
+}
+
+// isActive returns true if the current state is active (not skipping)
+func (es *evalState) isActive() bool {
+	return es.stack[len(es.stack)-1]
+}
+
+// pushIf pushes a new state for an if block
+func (es *evalState) pushIf(condition bool) {
+	if es.isActive() {
+		es.stack = append(es.stack, condition)
+	} else {
+		es.stack = append(es.stack, false)
+	}
+}
+
+// pop removes the top state from the stack
+func (es *evalState) pop() {
+	if len(es.stack) > 1 {
+		es.stack = es.stack[:len(es.stack)-1]
+	}
+}
+
+// toggle toggles the top state of the stack
+func (es *evalState) toggle() {
+	if len(es.stack) > 0 {
+		es.stack[len(es.stack)-1] = !es.stack[len(es.stack)-1]
+	}
+}
+
+// isTruthy determines if a value is truthy
+func isTruthy(v interface{}) bool {
+	if s, ok := v.(string); ok {
+		if s == "true" {
+			return true
+		} else if s == "false" {
+			return false
+		} else {
+			return s != ""
+		}
+	}
+	return false
+}
+
 // TemplateData holds the data passed to templates
 type TemplateData struct {
 	Values interface{}
 	Chart  interface{}
 }
 
-// skipList contains token values that should skip evaluation
-var skipList = []string{"{{end}}", "{{ end }}"}
 
-func skipEval(value string) bool {
-	for _, skip := range skipList {
-		if value == skip {
-			return true
-		}
-	}
-	return false
-}
 
 // EvalContext holds the context for evaluating expressions
 type EvalContext struct {
@@ -77,20 +119,46 @@ func (ec *EvalContext) evaluateExpression(expr string) (interface{}, error) {
 	return buf.String(), nil
 }
 
-// EvaluateTokens goes through the tokens and evaluates TokenAction tokens using the eval context
+// EvaluateTokens goes through the tokens and evaluates them using the eval context and state machine
 func EvaluateTokens(tokens []Token, ctx *EvalContext) ([]Token, error) {
-	for i, token := range tokens {
-		if token.Type == TokenAction {
-			if skipEval(token.Value) {
-				continue
+	state := newEvalState()
+	var result []Token
+	for _, token := range tokens {
+		switch token.Type {
+		case TokenIf:
+			// Parse the condition
+			inner := strings.TrimSpace(strings.TrimSuffix(token.Value, "}}")[2:])
+			if !strings.HasPrefix(inner, "if") {
+				return nil, fmt.Errorf("invalid if token: %s", token.Value)
 			}
-			result, err := ctx.Evaluate(token.Value)
+			condStr := strings.TrimSpace(inner[2:]) // remove "if"
+			condResult, err := ctx.Evaluate("{{" + condStr + "}}")
 			if err != nil {
 				return nil, err
 			}
-			// Update the token value with the evaluated result
-			tokens[i].Value = fmt.Sprintf("%v", result)
+			condBool := isTruthy(condResult)
+			state.pushIf(condBool)
+		case TokenElse:
+			state.toggle()
+		case TokenEnd:
+			state.pop()
+		default:
+			if state.isActive() {
+				if token.Type == TokenAction {
+					inner := strings.TrimSpace(strings.TrimSuffix(token.Value, "}}")[2:])
+					if inner == "else" {
+						state.toggle()
+						continue
+					}
+					resultVal, err := ctx.Evaluate(token.Value)
+					if err != nil {
+						return nil, err
+					}
+					token.Value = fmt.Sprintf("%v", resultVal)
+				}
+				result = append(result, token)
+			}
 		}
 	}
-	return tokens, nil
+	return result, nil
 }

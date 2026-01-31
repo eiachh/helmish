@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  staticText: {{ .Values.staticText }}
+  {{ if .Values.outer }}
+  outerValue: {{ .Values.outerValue }}
+  {{ if .Values.inner }}
+  innerValue: {{ .Values.innerValue }}
+  {{ end }}
+  {{ end }}

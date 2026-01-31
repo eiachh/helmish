@@ -1,0 +1,5 @@
+staticText: "static value"
+outer: true
+inner: true
+outerValue: "outer value"
+innerValue: "inner value"

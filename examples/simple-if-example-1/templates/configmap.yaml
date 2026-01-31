@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  value1: {{ .Values.staticText }}
+  {{ if .Values.shouldShow }}
+  value2: {{ .Values.shownText }}
+  {{ end }}
+  {{ if .Values.shouldNotShow }}
+  value3: {{ .Values.notShownText }}
+  {{ end }}
