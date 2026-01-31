@@ -3,6 +3,8 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 // LoadChart loads the chart from the given path
@@ -18,15 +20,29 @@ func LoadChart(path string) (Chart, error) {
 	// Load Chart.yaml for metadata
 	chartYamlPath := filepath.Join(path, "Chart.yaml")
 	if content, err := os.ReadFile(chartYamlPath); err == nil {
-		chart.Metadata["Chart.yaml"] = string(content)
+		var parsed interface{}
+		if err := yaml.Unmarshal(content, &parsed); err != nil {
+			return chart, err
+		}
+		chart.Metadata["Chart.yaml"] = ValueData{
+			Raw:    string(content),
+			Parsed: parsed,
+		}
 	} else {
-		return chart, err // or handle error, but for now return error if can't read
+		return chart, err
 	}
 
 	// Load values.yaml for values
 	valuesYamlPath := filepath.Join(path, "values.yaml")
 	if content, err := os.ReadFile(valuesYamlPath); err == nil {
-		chart.Values["values.yaml"] = string(content)
+		var parsed interface{}
+		if err := yaml.Unmarshal(content, &parsed); err != nil {
+			return chart, err
+		}
+		chart.Values["values.yaml"] = ValueData{
+			Raw:    string(content),
+			Parsed: parsed,
+		}
 	} else {
 		return chart, err
 	}
@@ -63,11 +79,28 @@ func LoadChart(path string) (Chart, error) {
 }
 
 // RenderChart renders the Helm chart using the TUI
-func RenderChart(opts Options) (map[string][]RenderedTemplate, error) {
-	result := make(map[string][]RenderedTemplate)
+func RenderChart(opts Options) (map[string][][]Token, error) {
+	result := make(map[string][][]Token)
+	// Create eval context from values and chart
+	var values, chart interface{}
+	if val, ok := opts.Chart.Values["values.yaml"]; ok {
+		values = val.Parsed
+	}
+	if meta, ok := opts.Chart.Metadata["Chart.yaml"]; ok {
+		chart = meta.Parsed
+	}
+	ctx := NewEvalContext(values, chart)
 	for filename, content := range opts.Chart.YamlTemplates {
 		rendered := parseContent(content)
-		result[filename] = rendered
+		for _, rt := range rendered {
+			tokens := Tokenize(rt)
+			// Evaluate the tokens
+			evaluatedTokens, err := EvaluateTokens(tokens, ctx)
+			if err != nil {
+				return nil, err
+			}
+			result[filename] = append(result[filename], evaluatedTokens)
+		}
 	}
 	return result, nil
 }

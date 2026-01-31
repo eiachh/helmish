@@ -8,22 +8,7 @@ type BlockContent interface {
 	Rendered() string
 }
 
-// YamlKey represents a YAML key (possibly indented)
-type YamlKey struct {
-	Key string
-}
-
-// Raw returns the raw YAML key
-func (y YamlKey) Raw() string {
-	return y.Key
-}
-
-// Rendered returns the rendered YAML key (same as raw for YAML)
-func (y YamlKey) Rendered() string {
-	return y.Raw()
-}
-
-// YamlKeyValue represents a YAML key-value pair
+// YamlKeyValue represents a YAML key-value pair (or key only if value is empty)
 type YamlKeyValue struct {
 	Key   string
 	Value string
@@ -31,11 +16,17 @@ type YamlKeyValue struct {
 
 // Raw returns the raw YAML key-value pair
 func (y YamlKeyValue) Raw() string {
+	if y.Value == "" {
+		return y.Key
+	}
 	return y.Key + ": " + y.Value
 }
 
 // Rendered returns the rendered YAML key-value pair
 func (y YamlKeyValue) Rendered() string {
+	if y.Value == "" {
+		return y.Key
+	}
 	if strings.Contains(y.Value, "{{") && strings.Contains(y.Value, "}}") {
 		// Simulate rendering by wrapping in [rendered ...]
 		return y.Key + ": [rendered " + y.Value + "]"
@@ -65,8 +56,7 @@ func (t TemplateBlock) Rendered() string {
 type BlockType int
 
 const (
-	YamlKeyBlock BlockType = iota
-	YamlKeyValueBlock
+	YamlKeyValueBlock BlockType = iota
 	TemplateBlockType
 )
 
@@ -75,6 +65,7 @@ type Block struct {
 	Line    int
 	Type   BlockType
 	Content BlockContent
+	Indent int
 }
 
 // Raw returns the raw content of the block
@@ -85,16 +76,6 @@ func (b Block) Raw() string {
 // Rendered returns the rendered content of the block
 func (b Block) Rendered() string {
 	return b.Content.Rendered()
-}
-
-// GetYamlKey returns the YamlKey if the block is of that type
-func (b Block) GetYamlKey() (*YamlKey, bool) {
-	if b.Type == YamlKeyBlock {
-		if yk, ok := b.Content.(*YamlKey); ok {
-			return yk, true
-		}
-	}
-	return nil, false
 }
 
 // GetYamlKeyValue returns the YamlKeyValue if the block is of that type
@@ -122,11 +103,17 @@ type RenderedTemplate struct {
 	Blocks []Block
 }
 
-// Values holds the chart values files (filename -> content)
-type Values map[string]string
+// ValueData holds the raw content and parsed data for a values file
+type ValueData struct {
+	Raw    string
+	Parsed interface{}
+}
 
-// Metadata holds the chart metadata files (filename -> content)
-type Metadata map[string]string
+// Values holds the chart values files (filename -> ValueData)
+type Values map[string]ValueData
+
+// Metadata holds the chart metadata files (filename -> ValueData)
+type Metadata map[string]ValueData
 
 // YamlTemplates holds the YAML template files (filename -> content)
 type YamlTemplates map[string]string
