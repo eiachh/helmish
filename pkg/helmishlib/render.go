@@ -2,37 +2,38 @@ package helmishlib
 
 import (
 	"helmish/internal/renderer"
+	"helmish/internal/renderer/types"
 )
 
 // ValueData holds the raw content and parsed data for a values file
 type ValueData = renderer.ValueData
 
-// YamlKeyValue represents a YAML key-value pair
-type YamlKeyValue = renderer.YamlKeyValue
+// KeyValueBlock represents a YAML key-value pair
+type KeyValueBlock = types.KeyValueBlock
 
 // TemplateBlock represents a Helm template block
-type TemplateBlock = renderer.TemplateBlock
+type TemplateBlock = types.TemplateBlock
 
 // Block represents a single line block in a rendered template
-type Block = renderer.Block
+type Block = types.Block
 
 // TokenType represents the type of token
-type TokenType = renderer.TokenType
+type TokenType = types.TokenType
 
 // Token represents a single token in the template
-type Token = renderer.Token
+type Token = types.Token
 
 // TokenText is a constant for text tokens
-const TokenText = renderer.TokenText
+const TokenText = types.TokenText
 
 // TokenIf is a constant for if tokens
-const TokenIf = renderer.TokenIf
+const TokenIf = types.TokenIf
 
 // TokenEnd is a constant for end tokens
-const TokenEnd = renderer.TokenEnd
+const TokenEnd = types.TokenEnd
 
 // TokenAction is a constant for action tokens
-const TokenAction = renderer.TokenAction
+const TokenAction = types.TokenAction
 
 // Chart represents the Helm chart data
 type Chart = renderer.Chart
