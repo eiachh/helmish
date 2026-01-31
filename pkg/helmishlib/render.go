@@ -4,11 +4,8 @@ import (
 	"helmish/internal/renderer"
 )
 
-// BlockContent represents content that can be raw or rendered
-type BlockContent = renderer.BlockContent
-
-// YamlKey represents a YAML key (possibly indented)
-type YamlKey = renderer.YamlKey
+// ValueData holds the raw content and parsed data for a values file
+type ValueData = renderer.ValueData
 
 // YamlKeyValue represents a YAML key-value pair
 type YamlKeyValue = renderer.YamlKeyValue
@@ -19,8 +16,17 @@ type TemplateBlock = renderer.TemplateBlock
 // Block represents a single line block in a rendered template
 type Block = renderer.Block
 
-// RenderedTemplate represents a single YAML document with its blocks
-type RenderedTemplate = renderer.RenderedTemplate
+// TokenType represents the type of token
+type TokenType = renderer.TokenType
+
+// Token represents a single token in the template
+type Token = renderer.Token
+
+// TokenText is a constant for text tokens
+const TokenText = renderer.TokenText
+
+// TokenAction is a constant for action tokens
+const TokenAction = renderer.TokenAction
 
 // Chart represents the Helm chart data
 type Chart = renderer.Chart
@@ -67,7 +73,7 @@ func loadProfile(name string) (renderer.Profile, error) {
 }
 
 // Render calls the internal renderer to render the chart using the loaded chart
-func (h *Helmish) Render(profile Profile) (map[string][]RenderedTemplate, error) {
+func (h *Helmish) Render(profile Profile) (map[string][][]Token, error) {
 	loadedProfile, err := loadProfile(profile.Name)
 	if err != nil {
 		return nil, err

@@ -38,29 +38,37 @@ func parseContent(content string) []RenderedTemplate {
 		if strings.Contains(line, "{{") && !strings.Contains(line, "}}") {
 			// Multiline template block
 			tmplContent, newI := collectMultilineTemplate(lines, i)
+			indent := len(line) - len(strings.TrimLeft(line, " "))
 			block := Block{
 				Line:     i + 1,
 				Type:    TemplateBlockType,
 				Content: &TemplateBlock{RawContent: tmplContent},
+				Indent:  indent,
 			}
 			current.Blocks = append(current.Blocks, block)
 			i = newI
 		} else {
 			// Single line block
+			indent := len(line) - len(strings.TrimLeft(line, " "))
 			var block Block
 			block.Line = i + 1
+			block.Indent = indent
 			if strings.Contains(line, "{{") && strings.Contains(line, "}}") {
 				block.Type = TemplateBlockType
 				block.Content = &TemplateBlock{RawContent: line}
-			} else if colonIndex := strings.Index(line, ":"); colonIndex != -1 {
-				key := strings.TrimSpace(line[:colonIndex])
-				valuePart := line[colonIndex+1:]
-				value := strings.TrimSpace(valuePart)
-				block.Type = YamlKeyValueBlock
-				block.Content = &YamlKeyValue{Key: key, Value: value}
 			} else {
-				block.Type = YamlKeyBlock
-				block.Content = &YamlKey{Key: line}
+				colonIndex := strings.Index(line, ":")
+				if colonIndex != -1 {
+					key := strings.TrimSpace(line[:colonIndex])
+					valuePart := line[colonIndex+1:]
+					value := strings.TrimSpace(valuePart)
+					block.Type = YamlKeyValueBlock
+					block.Content = &YamlKeyValue{Key: key, Value: value}
+				} else {
+					key := strings.TrimSpace(line)
+					block.Type = YamlKeyValueBlock
+					block.Content = &YamlKeyValue{Key: key, Value: ""}
+				}
 			}
 			current.Blocks = append(current.Blocks, block)
 			i++

@@ -10,33 +10,51 @@ import (
 	"helmish/pkg/helmishlib"
 )
 
-func renderToString(templates []helmishlib.RenderedTemplate) string {
+func renderToString(tokensList [][]helmishlib.Token) string {
 	var parts []string
-	for _, tmpl := range templates {
+	for _, tokens := range tokensList {
+		lineMap := make(map[int][]string)
+		lineIndents := make(map[int]int)
+		for _, token := range tokens {
+			if _, ok := lineIndents[token.Line]; !ok {
+				lineIndents[token.Line] = token.Indent
+			}
+			lineMap[token.Line] = append(lineMap[token.Line], token.Type.String()+": "+token.Value)
+		}
+		var sortedLines []int
+		for line := range lineMap {
+			sortedLines = append(sortedLines, line)
+		}
+		sort.Ints(sortedLines)
 		var lines []string
-		for _, block := range tmpl.Blocks {
-			lines = append(lines, block.Rendered())
+		for _, line := range sortedLines {
+			indent := lineIndents[line]
+			parts := lineMap[line]
+			if len(parts) > 0 {
+				parts[0] = strings.Repeat(" ", indent) + parts[0]
+			}
+			lines = append(lines, strings.Join(parts, ""))
 		}
 		parts = append(parts, strings.Join(lines, "\n"))
 	}
 	return strings.Join(parts, "\n---\n")
 }
 
-func renderRawToString(templates []helmishlib.RenderedTemplate) string {
+func renderRawToString(tokensList [][]helmishlib.Token) string {
 	var parts []string
-	for _, tmpl := range templates {
-		var lines []string
-		for _, block := range tmpl.Blocks {
-			lines = append(lines, block.Raw())
+	for _, tokens := range tokensList {
+		var raw []string
+		for _, token := range tokens {
+			raw = append(raw, token.Value)
 		}
-		parts = append(parts, strings.Join(lines, "\n"))
+		parts = append(parts, strings.Join(raw, ""))
 	}
 	return strings.Join(parts, "\n---\n")
 }
 
 type model struct {
 	rawContent map[string]string
-	rendered   map[string][]helmishlib.RenderedTemplate
+	rendered   map[string][][]helmishlib.Token
 	showPopup  bool
 	selected   int
 	files      []string
