@@ -1,6 +1,10 @@
-package renderer
+package parser
 
-import "strings"
+import (
+	"strings"
+
+	"helmish/internal/renderer/types"
+)
 
 // collectMultilineTemplate collects lines from start until }} is found
 func collectMultilineTemplate(lines []string, start int) (string, int) {
@@ -19,18 +23,18 @@ func collectMultilineTemplate(lines []string, start int) (string, int) {
 	return content, i
 }
 
-// parseContent parses the content of a YAML file into a list of RenderedTemplate
-func parseContent(content string) []RenderedTemplate {
+// collectBlocks parses the content of a YAML file into a list of DocumentBlocks
+func CollectBlocks(content string) []types.DocumentBlocks {
 	lines := strings.Split(content, "\n")
-	var rendered []RenderedTemplate
-	var current RenderedTemplate
+	var blocks []types.DocumentBlocks
+	var current types.DocumentBlocks
 	i := 0
 	for i < len(lines) {
 		line := lines[i]
 		if strings.TrimSpace(line) == "---" {
 			if len(current.Blocks) > 0 {
-				rendered = append(rendered, current)
-				current = RenderedTemplate{}
+				blocks = append(blocks, current)
+				current = types.DocumentBlocks{}
 			}
 			i++
 			continue
@@ -39,10 +43,10 @@ func parseContent(content string) []RenderedTemplate {
 			// Multiline template block
 			tmplContent, newI := collectMultilineTemplate(lines, i)
 			indent := len(line) - len(strings.TrimLeft(line, " "))
-			block := Block{
+			block := types.Block{
 				Line:     i + 1,
-				Type:    TemplateBlockType,
-				Content: &TemplateBlock{RawContent: tmplContent},
+				Type:    types.TemplateBlockType,
+				Content: &types.TemplateBlock{RawContent: tmplContent},
 				Indent:  indent,
 			}
 			current.Blocks = append(current.Blocks, block)
@@ -50,24 +54,24 @@ func parseContent(content string) []RenderedTemplate {
 		} else {
 			// Single line block
 			indent := len(line) - len(strings.TrimLeft(line, " "))
-			var block Block
+			var block types.Block
 			block.Line = i + 1
 			block.Indent = indent
 			if strings.Contains(line, "{{") && strings.Contains(line, "}}") {
-				block.Type = TemplateBlockType
-				block.Content = &TemplateBlock{RawContent: line}
+				block.Type = types.TemplateBlockType
+				block.Content = &types.TemplateBlock{RawContent: line}
 			} else {
 				colonIndex := strings.Index(line, ":")
 				if colonIndex != -1 {
 					key := strings.TrimSpace(line[:colonIndex])
 					valuePart := line[colonIndex+1:]
 					value := strings.TrimSpace(valuePart)
-					block.Type = YamlKeyValueBlock
-					block.Content = &YamlKeyValue{Key: key, Value: value}
+					block.Type = types.KeyValueBlockType
+					block.Content = &types.KeyValueBlock{Key: key, Value: value}
 				} else {
 					key := strings.TrimSpace(line)
-					block.Type = YamlKeyValueBlock
-					block.Content = &YamlKeyValue{Key: key, Value: ""}
+					block.Type = types.KeyValueBlockType
+					block.Content = &types.KeyValueBlock{Key: key, Value: ""}
 				}
 			}
 			current.Blocks = append(current.Blocks, block)
@@ -75,7 +79,7 @@ func parseContent(content string) []RenderedTemplate {
 		}
 	}
 	if len(current.Blocks) > 0 {
-		rendered = append(rendered, current)
+		blocks = append(blocks, current)
 	}
-	return rendered
+	return blocks
 }

@@ -5,16 +5,29 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"helmish/internal/renderer/ast"
+	"helmish/internal/renderer/eval"
+	"helmish/internal/renderer/parser"
+	"helmish/internal/renderer/tokenizer"
+	"helmish/internal/renderer/types"
 )
 
+// Aliases for public API
+type ValueData = types.ValueData
+type Chart = types.Chart
+type Profile = types.Profile
+type Capabilities = types.Capabilities
+type Options = types.Options
+
 // LoadChart loads the chart from the given path
-func LoadChart(path string) (Chart, error) {
-	chart := Chart{
+func LoadChart(path string) (types.Chart, error) {
+	chart := types.Chart{
 		Path:          path,
-		Values:        make(Values),
-		Metadata:      make(Metadata),
-		YamlTemplates: make(YamlTemplates),
-		TplFiles:      make(TplFiles),
+		Values:        make(types.Values),
+		Metadata:      make(types.Metadata),
+		YamlTemplates: make(types.YamlTemplates),
+		TplFiles:      make(types.TplFiles),
 	}
 
 	// Load Chart.yaml for metadata
@@ -24,7 +37,7 @@ func LoadChart(path string) (Chart, error) {
 		if err := yaml.Unmarshal(content, &parsed); err != nil {
 			return chart, err
 		}
-		chart.Metadata["Chart.yaml"] = ValueData{
+		chart.Metadata["Chart.yaml"] = types.ValueData{
 			Raw:    string(content),
 			Parsed: parsed,
 		}
@@ -39,7 +52,7 @@ func LoadChart(path string) (Chart, error) {
 		if err := yaml.Unmarshal(content, &parsed); err != nil {
 			return chart, err
 		}
-		chart.Values["values.yaml"] = ValueData{
+		chart.Values["values.yaml"] = types.ValueData{
 			Raw:    string(content),
 			Parsed: parsed,
 		}
@@ -79,8 +92,8 @@ func LoadChart(path string) (Chart, error) {
 }
 
 // RenderChart renders the Helm chart using the TUI
-func RenderChart(opts Options) (map[string][][]Token, error) {
-	result := make(map[string][][]Token)
+func RenderChart(opts Options) (map[string][][]types.Token, error) {
+	result := make(map[string][][]types.Token)
 	// Create eval context from values and chart
 	var values, chart interface{}
 	if val, ok := opts.Chart.Values["values.yaml"]; ok {
@@ -89,13 +102,18 @@ func RenderChart(opts Options) (map[string][][]Token, error) {
 	if meta, ok := opts.Chart.Metadata["Chart.yaml"]; ok {
 		chart = meta.Parsed
 	}
-	ctx := NewEvalContext(values, chart)
+	ctx := eval.NewEvalContext(values, chart)
 	for filename, content := range opts.Chart.YamlTemplates {
-		rendered := parseContent(content)
-		for _, rt := range rendered {
-			tokens := Tokenize(rt)
-			// Evaluate the tokens
-			evaluatedTokens, err := EvaluateTokens(tokens, ctx)
+		blocks := parser.CollectBlocks(content)
+		for _, doc := range blocks {
+			tokens := tokens.Tokenize(doc)
+			// Parse AST from tokens
+			nodes, err := ast.ParseAST(tokens)
+			if err != nil {
+				return nil, err
+			}
+			// Evaluate the AST
+			evaluatedTokens, err := eval.EvaluateAST(nodes, ctx)
 			if err != nil {
 				return nil, err
 			}

@@ -1,6 +1,115 @@
-package renderer
+package types
 
-import "strings"
+import (
+	"bytes"
+	"fmt"
+	"strings"
+	"text/template"
+)
+
+// TokenType represents the type of token
+type TokenType int
+
+const (
+	TokenText TokenType = iota
+	TokenIf
+	TokenElse
+	TokenEnd
+	TokenAction
+)
+
+// String returns the string representation of the token type
+func (t TokenType) String() string {
+	switch t {
+	case TokenText:
+		return "Text"
+	case TokenIf:
+		return "If"
+	case TokenElse:
+		return "Else"
+	case TokenEnd:
+		return "End"
+	case TokenAction:
+		return "Action"
+	default:
+		return "Unknown"
+	}
+}
+
+// Token represents a single token in the template
+type Token struct {
+	Type  TokenType
+	Value string
+	Line   int
+	Indent int
+}
+
+// TemplateData holds the data passed to templates
+type TemplateData struct {
+	Values interface{}
+	Chart  interface{}
+}
+
+// EvalContext holds the context for evaluating expressions
+type EvalContext struct {
+	Values interface{}
+	Chart  interface{}
+}
+
+// Evaluate evaluates the given expression using the context
+func (ec *EvalContext) Evaluate(expr string) (interface{}, error) {
+	// Strip {{ }} from the expression
+	if len(expr) < 4 || !strings.HasPrefix(expr, "{{") || !strings.HasSuffix(expr, "}}") {
+		// Not a valid action, return as is
+		return expr, nil
+	}
+	inner := expr[2 : len(expr)-2]
+	inner = strings.TrimSpace(inner)
+	// Implement expression evaluation
+	result, err := ec.evaluateExpression(inner)
+	if err != nil {
+		// If evaluation fails, return the inner expression as is
+		return inner, nil
+	}
+	return result, nil
+}
+
+// evaluateExpression evaluates the inner expression using text/template
+func (ec *EvalContext) evaluateExpression(expr string) (interface{}, error) {
+	// Create a template with the expression wrapped in {{ }}
+	tmplStr := "{{" + expr + "}}"
+	tmpl, err := template.New("").Parse(tmplStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %v", err)
+	}
+
+	data := TemplateData{
+		Values: ec.Values,
+		Chart:  ec.Chart,
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute template: %v", err)
+	}
+
+	return buf.String(), nil
+}
+
+// IsTruthy determines if a value is truthy
+func IsTruthy(v interface{}) bool {
+	if s, ok := v.(string); ok {
+		if s == "true" {
+			return true
+		} else if s == "false" {
+			return false
+		} else {
+			return s != ""
+		}
+	}
+	return false
+}
 
 // BlockContent represents content that can be raw or rendered
 type BlockContent interface {
@@ -8,14 +117,14 @@ type BlockContent interface {
 	Rendered() string
 }
 
-// YamlKeyValue represents a YAML key-value pair (or key only if value is empty)
-type YamlKeyValue struct {
+// KeyValueBlock represents a YAML key-value pair (or key only if value is empty)
+type KeyValueBlock struct {
 	Key   string
 	Value string
 }
 
 // Raw returns the raw YAML key-value pair
-func (y YamlKeyValue) Raw() string {
+func (y KeyValueBlock) Raw() string {
 	if y.Value == "" {
 		return y.Key
 	}
@@ -23,7 +132,7 @@ func (y YamlKeyValue) Raw() string {
 }
 
 // Rendered returns the rendered YAML key-value pair
-func (y YamlKeyValue) Rendered() string {
+func (y KeyValueBlock) Rendered() string {
 	if y.Value == "" {
 		return y.Key
 	}
@@ -56,7 +165,7 @@ func (t TemplateBlock) Rendered() string {
 type BlockType int
 
 const (
-	YamlKeyValueBlock BlockType = iota
+	KeyValueBlockType BlockType = iota
 	TemplateBlockType
 )
 
@@ -78,11 +187,11 @@ func (b Block) Rendered() string {
 	return b.Content.Rendered()
 }
 
-// GetYamlKeyValue returns the YamlKeyValue if the block is of that type
-func (b Block) GetYamlKeyValue() (*YamlKeyValue, bool) {
-	if b.Type == YamlKeyValueBlock {
-		if ykv, ok := b.Content.(*YamlKeyValue); ok {
-			return ykv, true
+// GetKeyValueBlock returns the KeyValueBlock if the block is of that type
+func (b Block) GetKeyValueBlock() (*KeyValueBlock, bool) {
+	if b.Type == KeyValueBlockType {
+		if kvb, ok := b.Content.(*KeyValueBlock); ok {
+			return kvb, true
 		}
 	}
 	return nil, false
@@ -98,8 +207,8 @@ func (b Block) GetTemplate() (*TemplateBlock, bool) {
 	return nil, false
 }
 
-// RenderedTemplate represents a single YAML document with its blocks
-type RenderedTemplate struct {
+// DocumentBlocks represents a single YAML document with its blocks
+type DocumentBlocks struct {
 	Blocks []Block
 }
 
