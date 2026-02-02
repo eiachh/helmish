@@ -74,8 +74,23 @@ func (ec *EvalContext) Evaluate(expr string) (interface{}, error) {
 	return result, nil
 }
 
-// evaluateExpression evaluates the inner expression using text/template
+// EvaluateSimple evaluates a simple expression without logical operators
+func (ec *EvalContext) EvaluateSimple(expr string) (interface{}, error) {
+	if len(expr) < 4 || !strings.HasPrefix(expr, "{{") || !strings.HasSuffix(expr, "}}") {
+		return nil, fmt.Errorf("invalid expression")
+	}
+	inner := expr[2 : len(expr)-2]
+	return ec.evaluateSimpleExpression(inner)
+}
+
+// evaluateExpression evaluates the inner expression
 func (ec *EvalContext) evaluateExpression(expr string) (interface{}, error) {
+	// For now, just simple expressions
+	return ec.evaluateSimpleExpression(expr)
+}
+
+// evaluateSimpleExpression evaluates a simple expression using text/template
+func (ec *EvalContext) evaluateSimpleExpression(expr string) (interface{}, error) {
 	// Create a template with the expression wrapped in {{ }}
 	tmplStr := "{{" + expr + "}}"
 	tmpl, err := template.New("").Parse(tmplStr)
@@ -99,16 +114,23 @@ func (ec *EvalContext) evaluateExpression(expr string) (interface{}, error) {
 
 // IsTruthy determines if a value is truthy
 func IsTruthy(v interface{}) bool {
-	if s, ok := v.(string); ok {
-		if s == "true" {
+	switch val := v.(type) {
+	case bool:
+		return val
+	case string:
+		if val == "true" {
 			return true
-		} else if s == "false" {
+		} else if val == "false" {
 			return false
 		} else {
-			return s != ""
+			return val != ""
 		}
+	case nil:
+		return false
+	default:
+		// For numbers, etc., consider non-zero as true, but for simplicity, true
+		return true
 	}
-	return false
 }
 
 // BlockContent represents content that can be raw or rendered
