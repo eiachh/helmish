@@ -73,6 +73,283 @@ func TestEvaluateASTIf(t *testing.T) {
 				{Type: types.TokenText, Value: "  key2: value2\n", Line: 5, Indent: 0},
 			},
 		},
+		{
+			name: "text, if infix or true true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.a or .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "text, if infix or true false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.a or .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "text, if infix or false false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.a or .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with and true true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with and true false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with and false true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with and false false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with or true true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with or true false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with or false true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with or false false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with not true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if not .Values.a}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with not false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if not .Values.a}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with and 5 conditions all true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b .Values.c .Values.d .Values.e}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true, "c": true, "d": true, "e": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with or 5 conditions all true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b .Values.c .Values.d .Values.e}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true, "c": true, "d": true, "e": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with and infix",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.a and .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if else with or both true",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key1: val1\n", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "  key2: val2\n", Line: 4, Indent: 2},
+				{Type: types.TokenElse, Value: "{{else}}", Line: 5, Indent: 0},
+				{Type: types.TokenText, Value: "  key3: val3\n", Line: 6, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 7, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key1: val1\n", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "  key2: val2\n", Line: 4, Indent: 2},
+			},
+		},
+		{
+			name: "if with and true false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if and .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "if with or true false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if or .Values.a .Values.b}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": true, "b": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "if with not false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if not .Values.a}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"a": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,6 +476,7 @@ func TestEvaluateASTEmbeddedIf(t *testing.T) {
 		})
 	}
 }
+
 
 func TestEvaluateASTElse(t *testing.T) {
 	// Helper to create EvalContext with given values

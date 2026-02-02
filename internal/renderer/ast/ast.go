@@ -7,6 +7,127 @@ import (
 	"helmish/internal/renderer/types"
 )
 
+// CondTokenType represents the type of condition token
+type CondTokenType int
+
+const (
+	CondExpr CondTokenType = iota
+	CondAnd
+	CondOr
+	CondNot
+)
+
+// CondToken represents a token in a condition expression
+type CondToken struct {
+	Type  CondTokenType
+	Value string
+}
+
+// CondNode represents a condition node that evaluates to a boolean
+type CondNode struct {
+	Tokens []CondToken
+}
+
+// Eval evaluates the condition and returns a boolean result
+func (n *CondNode) Eval(ctx *types.EvalContext) (bool, error) {
+	if len(n.Tokens) == 0 {
+		return false, nil
+	}
+	if len(n.Tokens) == 1 && n.Tokens[0].Type == CondExpr {
+		result, err := ctx.EvaluateSimple("{{" + n.Tokens[0].Value + "}}")
+		if err != nil {
+			return false, err
+		}
+		return types.IsTruthy(result), nil
+	}
+	// Check if prefix operator
+	if n.Tokens[0].Type == CondAnd || n.Tokens[0].Type == CondOr || n.Tokens[0].Type == CondNot {
+		op := n.Tokens[0]
+		exprs := n.Tokens[1:]
+		switch op.Type {
+		case CondAnd:
+			result := true
+			for _, expr := range exprs {
+				if expr.Type != CondExpr {
+					return false, fmt.Errorf("invalid condition: expected expression after and")
+				}
+				val, err := ctx.EvaluateSimple("{{" + expr.Value + "}}")
+				if err != nil {
+					return false, err
+				}
+				if !types.IsTruthy(val) {
+					result = false
+				}
+			}
+			return result, nil
+		case CondOr:
+			result := false
+			for _, expr := range exprs {
+				if expr.Type != CondExpr {
+					return false, fmt.Errorf("invalid condition: expected expression after or")
+				}
+				val, err := ctx.EvaluateSimple("{{" + expr.Value + "}}")
+				if err != nil {
+					return false, err
+				}
+				if types.IsTruthy(val) {
+					result = true
+				}
+			}
+			return result, nil
+		case CondNot:
+			if len(exprs) != 1 || exprs[0].Type != CondExpr {
+				return false, fmt.Errorf("invalid condition: not expects one expression")
+			}
+			val, err := ctx.EvaluateSimple("{{" + exprs[0].Value + "}}")
+			if err != nil {
+				return false, err
+			}
+			return !types.IsTruthy(val), nil
+		}
+	} else {
+		// Assume infix: expr op expr
+		if len(n.Tokens) == 3 && n.Tokens[0].Type == CondExpr && n.Tokens[2].Type == CondExpr {
+			left, err := ctx.EvaluateSimple("{{" + n.Tokens[0].Value + "}}")
+			if err != nil {
+				return false, err
+			}
+			right, err := ctx.EvaluateSimple("{{" + n.Tokens[2].Value + "}}")
+			if err != nil {
+				return false, err
+			}
+			switch n.Tokens[1].Type {
+			case CondAnd:
+				return types.IsTruthy(left) && types.IsTruthy(right), nil
+			case CondOr:
+				return types.IsTruthy(left) || types.IsTruthy(right), nil
+			default:
+				return false, fmt.Errorf("unsupported infix operator")
+			}
+		}
+	}
+	return false, fmt.Errorf("invalid condition structure")
+}
+
+// parseCondition parses a condition string into condition tokens
+func parseCondition(cond string) []CondToken {
+	parts := strings.Fields(cond)
+	var tokens []CondToken
+	for _, part := range parts {
+		switch part {
+		case "and":
+			tokens = append(tokens, CondToken{Type: CondAnd})
+		case "or":
+			tokens = append(tokens, CondToken{Type: CondOr})
+		case "not":
+			tokens = append(tokens, CondToken{Type: CondNot})
+		default:
+			tokens = append(tokens, CondToken{Type: CondExpr, Value: part})
+		}
+	}
+	return tokens
+}
+
 // Node represents a node in the AST
 type Node interface {
 	Eval(ctx *types.EvalContext, out *[]types.Token) error
@@ -41,18 +162,17 @@ func (n *ActionNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 
 // IfNode represents an if node with condition, then, and else branches
 type IfNode struct {
-	Cond string // the condition expression, e.g. ".Values.enabled"
+	Cond *CondNode
 	Then []Node
 	Else []Node
 }
 
 // Eval evaluates the if node
 func (n *IfNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
-	condResult, err := ctx.Evaluate("{{" + n.Cond + "}}")
+	condBool, err := n.Cond.Eval(ctx)
 	if err != nil {
 		return err
 	}
-	condBool := types.IsTruthy(condResult)
 	if condBool {
 		for _, node := range n.Then {
 			err := node.Eval(ctx, out)
@@ -96,7 +216,9 @@ func parseBlock(tokens []types.Token, start int, terminators ...types.TokenType)
 			// Recursive for nested if
 			inner := strings.TrimSpace(strings.TrimSuffix(tokens[i].Value, "}}")[2:])
 			condStr := strings.TrimSpace(inner[2:]) // remove "if"
-			ifNode := &IfNode{Cond: condStr}
+			condTokens := parseCondition(condStr)
+			condNode := &CondNode{Tokens: condTokens}
+			ifNode := &IfNode{Cond: condNode}
 			i++
 			thenNodes, newI := parseBlock(tokens, i, types.TokenElse, types.TokenEnd)
 			ifNode.Then = thenNodes

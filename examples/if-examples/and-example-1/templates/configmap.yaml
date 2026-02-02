@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  before: {{ .Values.beforeText }}
+  {{ if and .Values.trueCond1 .Values.trueCond2 }}
+  case1: bothTrue
+  {{ end }}
+  {{ if and .Values.trueCond1 .Values.falseCond1 }}
+  case2: trueAndFalse
+  {{ end }}
+  {{ if and .Values.falseCond1 .Values.falseCond2 }}
+  case3: bothFalse
+  {{ end }}
+  after: {{ .Values.afterText }}

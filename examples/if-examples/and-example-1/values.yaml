@@ -1,0 +1,6 @@
+beforeText: "Hello from values"
+afterText: "Goodbye from values"
+trueCond1: true
+trueCond2: true
+falseCond1: false
+falseCond2: false
