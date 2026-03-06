@@ -1,0 +1,9 @@
+users:
+  - name: alice
+    enabled: true
+  - name: bob
+    enabled: false
+  - name: charlie
+    enabled: true
+  - name: dave
+    enabled: false

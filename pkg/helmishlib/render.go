@@ -29,8 +29,14 @@ const TokenText = types.TokenText
 // TokenIf is a constant for if tokens
 const TokenIf = types.TokenIf
 
+// TokenElse is a constant for else tokens
+const TokenElse = types.TokenElse
+
 // TokenEnd is a constant for end tokens
 const TokenEnd = types.TokenEnd
+
+// TokenRange is a constant for range tokens
+const TokenRange = types.TokenRange
 
 // TokenAction is a constant for action tokens
 const TokenAction = types.TokenAction
@@ -90,4 +96,30 @@ func (h *Helmish) Render(profile Profile) (map[string][][]Token, error) {
 		Profile: loadedProfile,
 	}
 	return renderer.RenderChart(internalOpts)
+}
+
+// RenderTokensToString converts a 2D slice of tokens to a string representation.
+// Each inner slice represents a line (or document), and tokens are concatenated
+// to form the rendered output. Newlines are added between lines.
+func RenderTokensToString(tokens [][]Token) string {
+	var result string
+	for i, line := range tokens {
+		if i > 0 {
+			result += "\n"
+		}
+		for _, tok := range line {
+			result += tok.Value
+		}
+	}
+	return result
+}
+
+// RenderAllFilesToString converts a map of files (each containing 2D token slices)
+// to a map of rendered strings.
+func RenderAllFilesToString(fileTokens map[string][][]Token) map[string]string {
+	result := make(map[string]string)
+	for filename, tokens := range fileTokens {
+		result[filename] = RenderTokensToString(tokens)
+	}
+	return result
 }

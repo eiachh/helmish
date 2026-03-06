@@ -155,8 +155,15 @@ func (n *ActionNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 	if err != nil {
 		return err
 	}
-	n.Token.Value = fmt.Sprintf("%v", resultVal)
-	*out = append(*out, n.Token)
+	// Create a new token with the evaluated value instead of modifying in place
+	// This is important for range loops where the same action is evaluated multiple times
+	evaluatedToken := types.Token{
+		Type:   n.Token.Type,
+		Value:  fmt.Sprintf("%v", resultVal),
+		Line:   n.Token.Line,
+		Indent: n.Token.Indent,
+	}
+	*out = append(*out, evaluatedToken)
 	return nil
 }
 
@@ -188,6 +195,62 @@ func (n *IfNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 			}
 		}
 	}
+	return nil
+}
+
+// RangeNode represents a range node that iterates over a list or map
+type RangeNode struct {
+	Variable   string // The variable name for the current item (e.g., "." or "$item")
+	Collection string // The expression to iterate over
+	Body       []Node
+}
+
+// Eval evaluates the range node
+func (n *RangeNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
+	// Get the collection value (actual typed value, not string representation)
+	result, err := ctx.GetValue(n.Collection)
+	if err != nil {
+		return err
+	}
+
+	// Handle different collection types
+	switch collection := result.(type) {
+	case []interface{}:
+		for _, item := range collection {
+			// Create a new context with the current item as the Values
+			// This makes . refer to the current item in the range
+			itemCtx := &types.EvalContext{
+				Values: item,
+				Chart:  ctx.Chart,
+			}
+			// Evaluate each node in the body
+			for _, node := range n.Body {
+				err := node.Eval(itemCtx, out)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	case map[string]interface{}:
+		for _, value := range collection {
+			// Create a new context with the current value as the Values
+			itemCtx := &types.EvalContext{
+				Values: value,
+				Chart:  ctx.Chart,
+			}
+			// Evaluate each node in the body
+			for _, node := range n.Body {
+				err := node.Eval(itemCtx, out)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		// If it's not a collection we can iterate over, just evaluate the body once
+		// or we could return an error - for now, let's skip
+	}
+
 	return nil
 }
 
@@ -233,6 +296,20 @@ func parseBlock(tokens []types.Token, start int, terminators ...types.TokenType)
 				i++
 			}
 			nodes = append(nodes, ifNode)
+			continue
+		case types.TokenRange:
+			// Parse range expression
+			inner := strings.TrimSpace(strings.TrimSuffix(tokens[i].Value, "}}")[2:])
+			rangeExpr := strings.TrimSpace(inner[5:]) // remove "range"
+			rangeNode := &RangeNode{Collection: rangeExpr}
+			i++
+			bodyNodes, newI := parseBlock(tokens, i, types.TokenEnd)
+			rangeNode.Body = bodyNodes
+			i = newI
+			if i < len(tokens) && tokens[i].Type == types.TokenEnd {
+				i++
+			}
+			nodes = append(nodes, rangeNode)
 			continue
 		default:
 			// Skip other tokens for now
