@@ -2,254 +2,111 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"sort"
+	"os"
+	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"helmish/pkg/helmishlib"
 )
 
-func renderToString(tokensList [][]helmishlib.Token) string {
-	var parts []string
-	for _, tokens := range tokensList {
-		lineMap := make(map[int][]string)
-		lineIndents := make(map[int]int)
-		for _, token := range tokens {
-			if _, ok := lineIndents[token.Line]; !ok {
-				lineIndents[token.Line] = token.Indent
-			}
-			lineMap[token.Line] = append(lineMap[token.Line], token.Type.String()+": "+token.Value)
-		}
-		var sortedLines []int
-		for line := range lineMap {
-			sortedLines = append(sortedLines, line)
-		}
-		sort.Ints(sortedLines)
-		var lines []string
-		for _, line := range sortedLines {
-			indent := lineIndents[line]
-			parts := lineMap[line]
-			if len(parts) > 0 {
-				parts[0] = strings.Repeat(" ", indent) + parts[0]
-			}
-			lines = append(lines, strings.Join(parts, ""))
-		}
-		parts = append(parts, strings.Join(lines, "\n"))
-	}
-	return strings.Join(parts, "\n---\n")
-}
-
-func renderRawToString(tokensList [][]helmishlib.Token) string {
-	var parts []string
-	for _, tokens := range tokensList {
-		var raw []string
-		for _, token := range tokens {
-			raw = append(raw, token.Value)
-		}
-		parts = append(parts, strings.Join(raw, ""))
-	}
-	return strings.Join(parts, "\n---\n")
-}
-
-type model struct {
-	rawContent map[string]string
-	rendered   map[string][][]helmishlib.Token
-	showPopup  bool
-	selected   int
-	files      []string
-	width      int
-	height     int
-	currentFile string
-}
-
-func (m model) Init() tea.Cmd {
-	return nil
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height - 3
-	case tea.KeyMsg:
-		if m.showPopup {
-			switch msg.String() {
-			case "up":
-				if m.selected > 0 {
-					m.selected--
-				}
-			case "down":
-				if m.selected < len(m.files)-1 {
-					m.selected++
-				}
-			case "enter":
-				if m.selected >= 0 && m.selected < len(m.files) {
-					m.currentFile = m.files[m.selected]
-				}
-				m.showPopup = false
-			case "esc":
-				m.showPopup = false
-			case "q", "ctrl+c":
-				return m, tea.Quit
-			}
-		} else {
-			switch msg.String() {
-			case "0":
-				m.showPopup = true
-				m.selected = 0
-			case "q", "ctrl+c":
-				return m, tea.Quit
-			}
-		}
-	}
-	return m, nil
-}
-
-func (m model) View() string {
-	if m.showPopup {
-		return m.renderOverlay()
-	}
-	return m.renderMain()
-}
-
-func (m model) renderMain() string {
-	halfWidth := m.width / 2
-	// Adjust for border (2) and padding (2) on each side
-	adjustedWidth := halfWidth - 4
-	leftStyle := lipgloss.NewStyle().
-		Width(adjustedWidth).
-		Height(m.height).
-		Border(lipgloss.ThickBorder()).
-		Padding(1)
-
-	rightStyle := lipgloss.NewStyle().
-		Width(adjustedWidth).
-		Height(m.height).
-		Border(lipgloss.ThickBorder()).
-		Padding(1)
-
-	// Left panel: raw content
-	leftContent := m.rawContent[m.currentFile]
-	left := leftStyle.Render(leftContent)
-
-	// Right panel: rendered content
-	rightContent := renderToString(m.rendered[m.currentFile])
-	right := rightStyle.Render(rightContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-}
-
-func (m model) renderOverlay() string {
-	background := lipgloss.Place(m.width, m.height, lipgloss.Left, lipgloss.Top, m.renderMain())
-	popup := m.renderFileSelectorPopup()
-	// Popup dimensions: width = 50 + 2(border) + 2(padding) = 54
-	// height = 20 + 2(border) + 2(padding) = 24
-	fgWidth := 54
-	fgHeight := 24
-	x := (m.width - fgWidth) / 2
-	y := (m.height - fgHeight) / 2
-	// Ensure it fits within the screen
-	if x < 0 {
-		x = 0
-	}
-	if x+fgWidth > m.width {
-		x = m.width - fgWidth
-	}
-	if y < 0 {
-		y = 0
-	}
-	if y+fgHeight > m.height {
-		y = m.height - fgHeight
-	}
-	return overlayStrings(background, popup, m.width, m.height, fgWidth, fgHeight, x, y)
-}
-
-func overlayStrings(bg, fg string, width, height, fgWidth, fgHeight, x, y int) string {
-	bgLines := strings.Split(bg, "\n")
-	fgLines := strings.Split(fg, "\n")
-	for i := 0; i < len(bgLines) && i < height; i++ {
-		if i >= y && i < y+fgHeight && (i-y) < len(fgLines) {
-			fgLine := fgLines[i-y]
-			if len(fgLine) > 0 {
-				start := x
-				if start < 0 {
-					start = 0
-				}
-				end := start + len(fgLine)
-				if end > len(bgLines[i]) {
-					end = len(bgLines[i])
-				}
-				if start < len(bgLines[i]) && end > start {
-					bgLines[i] = bgLines[i][:start] + fgLine[:end-start] + bgLines[i][end:]
-				}
-			}
-		}
-	}
-	return strings.Join(bgLines, "\n")
-}
-
-func (m model) renderFileSelectorPopup() string {
-	popupStyle := lipgloss.NewStyle().
-		Width(50).
-		Height(20).
-		Border(lipgloss.ThickBorder()).
-		Padding(1)
-
-	content := "File Selector (use arrow keys, enter to select, esc to cancel):\n\n"
-
-	// Find the current displayed file index
-	currentIndex := -1
-	for i, f := range m.files {
-		if f == m.currentFile {
-			currentIndex = i
-			break
-		}
-	}
-
-	for i, f := range m.files {
-		prefix := "  "
-		if i == m.selected {
-			prefix = "> "
-		}
-		if i == currentIndex {
-			prefix = "* "
-		}
-		if i == m.selected && i == currentIndex {
-			prefix = "*>"
-		}
-		content += prefix + f + "\n"
-	}
-
-	return popupStyle.Render(content)
-}
-
 func main() {
-	opts := parseConfig()
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: helmish <chart-path>")
+		os.Exit(1)
+	}
+
+	chartPath := os.Args[1]
+
+	// Check if the path is absolute, if not make it relative to current directory
+	if !filepath.IsAbs(chartPath) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Printf("Error getting current directory: %v\n", err)
+			os.Exit(1)
+		}
+		chartPath = filepath.Join(cwd, chartPath)
+	}
 
 	// Load the chart
-	helmish, err := helmishlib.NewHelmish(opts.Chart.Path)
+	h, err := helmishlib.NewHelmish(chartPath)
 	if err != nil {
-		log.Fatalf("Error loading chart: %v", err)
+		fmt.Printf("Error loading chart: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Render the chart
-	rendered, err := helmish.Render(opts.Profile)
+	tokens, err := h.Render(helmishlib.Profile{Name: "default"})
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error rendering chart: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Prepare raw content
-	rawContent := make(map[string]string)
-	for filename, templates := range rendered {
-		rawContent[filename] = renderRawToString(templates)
+	// Display tokenized output - group tokens by line
+	fmt.Println("=== TOKENIZED OUTPUT ===")
+	for filename, fileTokens := range tokens {
+		fmt.Printf("\n--- %s ---\n", filename)
+		for _, docTokens := range fileTokens {
+			printTokensByLine(docTokens)
+		}
 	}
 
-	// Print rendered
-	for filename, tokensList := range rendered {
-		fmt.Printf("File: %s\n", filename)
-		fmt.Println(renderToString(tokensList))
-		fmt.Println("---")
+	// Display string rendered output
+	fmt.Println("\n=== RENDERED OUTPUT ===")
+	renderedFiles := helmishlib.RenderAllFilesToString(tokens)
+	for filename, content := range renderedFiles {
+		fmt.Printf("\n--- %s ---\n", filename)
+		fmt.Println(strings.TrimSuffix(content, "\n"))
+	}
+}
+
+// printTokensByLine prints tokens grouped by their line number
+func printTokensByLine(tokens []helmishlib.Token) {
+	if len(tokens) == 0 {
+		return
+	}
+
+	// Group tokens by line
+	lineGroups := make(map[int][]helmishlib.Token)
+	var lineOrder []int
+	
+	for _, tok := range tokens {
+		line := tok.Line
+		if _, exists := lineGroups[line]; !exists {
+			lineOrder = append(lineOrder, line)
+		}
+		lineGroups[line] = append(lineGroups[line], tok)
+	}
+
+	// Print tokens for each line
+	for _, line := range lineOrder {
+		group := lineGroups[line]
+		// Filter out newline-only text tokens for display
+		var filtered []helmishlib.Token
+		for _, tok := range group {
+			// Skip text tokens that are only newlines or empty
+			if tok.Type == helmishlib.TokenText {
+				val := strings.TrimSuffix(tok.Value, "\n")
+				if val == "" {
+					continue
+				}
+			}
+			filtered = append(filtered, tok)
+		}
+		
+		// Skip lines with no visible tokens
+		if len(filtered) == 0 {
+			continue
+		}
+		
+		fmt.Printf("    Line %d: ", line)
+		for i, tok := range filtered {
+			// Trim newlines from displayed value for cleaner output
+			val := strings.TrimSuffix(tok.Value, "\n")
+			if i > 0 {
+				fmt.Printf(" ")
+			}
+			fmt.Printf("%s(%q)", tok.Type.String(), val)
+		}
+		fmt.Println()
 	}
 }

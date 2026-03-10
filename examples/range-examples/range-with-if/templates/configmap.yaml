@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  enabledUsers: |
+    {{ range .Values.users }}
+    {{ if .enabled }}
+    - {{ .name }}
+    {{ end }}
+    {{ end }}

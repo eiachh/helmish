@@ -478,6 +478,148 @@ func TestEvaluateASTEmbeddedIf(t *testing.T) {
 }
 
 
+func TestEvaluateAST_Range(t *testing.T) {
+	// Helper to create EvalContext with given values
+	createCtx := func(values map[string]interface{}) *types.EvalContext {
+		return eval.NewEvalContext(values, map[string]interface{}{"name": "test"})
+	}
+
+	tests := []struct {
+		name           string
+		tokens         []types.Token
+		values         map[string]interface{}
+		expectedCount  int // expected number of output tokens
+		checkContains  string // substring that should be in output
+	}{
+		{
+			name: "range over simple list",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items": []interface{}{"a", "b", "c"},
+			},
+			expectedCount: 3,
+			checkContains: "abc",
+		},
+		{
+			name: "range over list of maps",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: ": ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.value}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items": []interface{}{
+					map[string]interface{}{"name": "item1", "value": "val1"},
+					map[string]interface{}{"name": "item2", "value": "val2"},
+				},
+			},
+			expectedCount: 10, // 5 tokens per iteration x 2 iterations
+			checkContains: "item1: val1",
+		},
+		{
+			name: "range over empty list",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items": []interface{}{},
+			},
+			expectedCount: 0,
+			checkContains: "",
+		},
+		{
+			name: "range over map values",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+			expectedCount: 2,
+			checkContains: "value1",
+		},
+		{
+			name: "range with if - only show enabled users",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.users}}", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .enabled}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "  ", Line: 3, Indent: 4},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 3, Indent: 4},
+				{Type: types.TokenText, Value: ": enabled\n", Line: 3, Indent: 4},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"users": []interface{}{
+					map[string]interface{}{"name": "alice", "enabled": true},
+					map[string]interface{}{"name": "bob", "enabled": false},
+					map[string]interface{}{"name": "charlie", "enabled": true},
+				},
+			},
+			expectedCount: 6, // 3 tokens per enabled user x 2 enabled users
+			checkContains: "alice: enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := createCtx(tt.values)
+			nodes, err := ast.ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			result, err := eval.EvaluateAST(nodes, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Check expected token count
+			if len(result) != tt.expectedCount {
+				t.Errorf("expected %d tokens, got %d", tt.expectedCount, len(result))
+			}
+
+			// Check that output contains expected substring
+			if tt.checkContains != "" {
+				output := ""
+				for _, tok := range result {
+					output += tok.Value
+				}
+				if !contains(output, tt.checkContains) {
+					t.Errorf("expected output to contain %q, got %q", tt.checkContains, output)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(substr) <= len(s) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestEvaluateASTElse(t *testing.T) {
 	// Helper to create EvalContext with given values
 	createCtx := func(values map[string]interface{}) *types.EvalContext {

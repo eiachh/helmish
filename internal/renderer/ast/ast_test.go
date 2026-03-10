@@ -440,3 +440,103 @@ func TestParseAST(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAST_Range(t *testing.T) {
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		expected func([]Node) bool
+	}{
+		{
+			name: "simple range over list",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				rangeNode, ok := nodes[0].(*RangeNode)
+				if !ok {
+					return false
+				}
+				if rangeNode.Collection != ".Values.items" {
+					return false
+				}
+				if len(rangeNode.Body) != 3 { // Text, Action, Text (newline)
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "range with action body",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				rangeNode, ok := nodes[0].(*RangeNode)
+				if !ok {
+					return false
+				}
+				if rangeNode.Collection != ".Values.items" {
+					return false
+				}
+				if len(rangeNode.Body) != 1 {
+					return false
+				}
+				_, ok = rangeNode.Body[0].(*ActionNode)
+				if !ok {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "range with multiple body elements",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  name: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n  value: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.value}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				rangeNode, ok := nodes[0].(*RangeNode)
+				if !ok {
+					return false
+				}
+				if len(rangeNode.Body) != 5 { // Text, Action, Text, Action, Text
+					return false
+				}
+				return true
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes, err := ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			if !tt.expected(nodes) {
+				t.Errorf("Parsed nodes did not match expected structure")
+			}
+		})
+	}
+}

@@ -9,10 +9,21 @@ import (
 // Tokenize converts a DocumentBlocks's blocks into a list of tokens
 func Tokenize(blocks types.DocumentBlocks) []types.Token {
 	var tokens []types.Token
-	for _, block := range blocks.Blocks {
+	for i, block := range blocks.Blocks {
 		// Tokenize the raw content of all blocks
 		blockTokens := tokenizeContent(block.Raw(), block.Line, block.Indent)
 		tokens = append(tokens, blockTokens...)
+		// Add newline between blocks (but not after the last block)
+		if i < len(blocks.Blocks)-1 && len(tokens) > 0 {
+			// Only add newline if the last token is a text token
+			// Action tokens (including control structures) shouldn't have newlines appended
+			if tokens[len(tokens)-1].Type == types.TokenText {
+				tokens[len(tokens)-1].Value += "\n"
+			} else {
+				// Add a separate newline text token
+				tokens = append(tokens, types.Token{Type: types.TokenText, Value: "\n", Line: block.Line})
+			}
+		}
 	}
 	return tokens
 }
@@ -58,6 +69,12 @@ func tokenizeContent(content string, startLine int, indent int) []types.Token {
 				i++
 			}
 			text := content[start:i]
+			// Include newline as part of the text token if present
+			if i < len(content) && content[i] == '\n' {
+				text += "\n"
+				line++
+				i++
+			}
 			if text != "" {
 				tokens = append(tokens, types.Token{Type: types.TokenText, Value: text, Line: line, Indent: indent})
 			}
@@ -78,6 +95,8 @@ func classifyAction(action string) types.TokenType {
 		return types.TokenElse
 	} else if inner == "end" {
 		return types.TokenEnd
+	} else if strings.HasPrefix(inner, "range ") || inner == "range" {
+		return types.TokenRange
 	}
 	return types.TokenAction
 }

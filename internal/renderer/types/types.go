@@ -15,6 +15,7 @@ const (
 	TokenIf
 	TokenElse
 	TokenEnd
+	TokenRange
 	TokenAction
 )
 
@@ -29,6 +30,8 @@ func (t TokenType) String() string {
 		return "Else"
 	case TokenEnd:
 		return "End"
+	case TokenRange:
+		return "Range"
 	case TokenAction:
 		return "Action"
 	default:
@@ -65,7 +68,18 @@ func (ec *EvalContext) Evaluate(expr string) (interface{}, error) {
 	}
 	inner := expr[2 : len(expr)-2]
 	inner = strings.TrimSpace(inner)
-	// Implement expression evaluation
+
+	// Try to get the value directly first (for field access like .name, .Values.items, etc.)
+	// This handles range contexts properly where . refers to the current item
+	if strings.HasPrefix(inner, ".") {
+		val, err := ec.GetValue(inner)
+		if err == nil {
+			return val, nil
+		}
+		// If GetValue fails, fall through to template evaluation
+	}
+
+	// Implement expression evaluation using template
 	result, err := ec.evaluateExpression(inner)
 	if err != nil {
 		// If evaluation fails, return the inner expression as is
@@ -80,6 +94,18 @@ func (ec *EvalContext) EvaluateSimple(expr string) (interface{}, error) {
 		return nil, fmt.Errorf("invalid expression")
 	}
 	inner := expr[2 : len(expr)-2]
+	inner = strings.TrimSpace(inner)
+
+	// Try to get the value directly first (for field access like .name, .Values.items, etc.)
+	// This handles range contexts properly where . refers to the current item
+	if strings.HasPrefix(inner, ".") {
+		val, err := ec.GetValue(inner)
+		if err == nil {
+			return val, nil
+		}
+		// If GetValue fails, fall through to template evaluation
+	}
+
 	return ec.evaluateSimpleExpression(inner)
 }
 
@@ -110,6 +136,75 @@ func (ec *EvalContext) evaluateSimpleExpression(expr string) (interface{}, error
 	}
 
 	return buf.String(), nil
+}
+
+// GetValue retrieves a value from the context by path (e.g., ".Values.items" or ".Chart.name")
+// This returns the actual typed value, not a string representation
+func (ec *EvalContext) GetValue(path string) (interface{}, error) {
+	path = strings.TrimSpace(path)
+
+	// Handle the root
+	if path == "." {
+		return ec.Values, nil
+	}
+
+	// Remove leading dot if present
+	if strings.HasPrefix(path, ".") {
+		path = path[1:]
+	}
+
+	parts := strings.Split(path, ".")
+	if len(parts) == 0 {
+		return ec.Values, nil
+	}
+
+	// Get the root value
+	var current interface{}
+	switch parts[0] {
+	case "Values":
+		current = ec.Values
+	case "Chart":
+		current = ec.Chart
+	case "":
+		current = ec.Values
+	default:
+		// Try to get from Values first, then Chart
+		if ec.Values != nil {
+			current = ec.Values
+			// Re-add the first part since it's not a namespace
+			parts = append([]string{""}, parts...)
+		} else {
+			return nil, fmt.Errorf("unknown root: %s", parts[0])
+		}
+	}
+
+	// Traverse the path
+	for i := 1; i < len(parts); i++ {
+		part := parts[i]
+		if part == "" {
+			continue
+		}
+
+		switch v := current.(type) {
+		case map[string]interface{}:
+			val, ok := v[part]
+			if !ok {
+				return nil, fmt.Errorf("key not found: %s", part)
+			}
+			current = val
+		case map[interface{}]interface{}:
+			val, ok := v[part]
+			if !ok {
+				return nil, fmt.Errorf("key not found: %s", part)
+			}
+			current = val
+		default:
+			// Try using reflection for struct access
+			return nil, fmt.Errorf("cannot access field %s on type %T", part, current)
+		}
+	}
+
+	return current, nil
 }
 
 // IsTruthy determines if a value is truthy
