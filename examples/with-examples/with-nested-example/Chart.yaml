@@ -1,0 +1,6 @@
+apiVersion: v2
+name: with-nested-example
+description: Nested with blocks to drill into deep config structures
+type: application
+version: 0.1.0
+appVersion: "1.0"

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  {{ with .Values.ingress }}
+  hostname: {{ .hostname }}
+  paths: |
+    {{ range .paths }}
+    - path: {{ .path }}
+      service: {{ .service }}
+      port: {{ .port }}
+    {{ end }}
+  {{ end }}

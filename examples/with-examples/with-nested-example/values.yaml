@@ -1,0 +1,12 @@
+app:
+  name: "my-app"
+  frontend:
+    image: "nginx:1.25"
+    port: "80"
+  backend:
+    image: "node:20-alpine"
+    port: "3000"
+    database:
+      host: "db.internal"
+      port: "5432"
+      name: "appdb"

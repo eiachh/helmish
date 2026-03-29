@@ -774,3 +774,387 @@ func TestEvaluateASTElse(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateAST_With(t *testing.T) {
+	// Helper to create EvalContext with given values
+	createCtx := func(values map[string]interface{}) *types.EvalContext {
+		return eval.NewEvalContext(values, map[string]interface{}{"name": "test"})
+	}
+
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		values   map[string]interface{}
+		expected []types.Token
+	}{
+		{
+			name: "with truthy value, rescopes context to nested field",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{"name": "myconfig"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "with missing value, body skipped",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  inside\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+			values:   map[string]interface{}{},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+		},
+		{
+			name: "with nil value, body skipped",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  inside\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{"config": nil},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+		},
+		{
+			name: "with false value, body skipped",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  inside\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{"config": false},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 5, Indent: 0},
+			},
+		},
+		{
+			name: "with else, truthy executes body",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  found: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenElse, Value: "{{else}}", Line: 4, Indent: 0},
+				{Type: types.TokenText, Value: "  not found\n", Line: 5, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{"name": "myconfig"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  found: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "with else, falsy executes else",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  found\n", Line: 3, Indent: 2},
+				{Type: types.TokenElse, Value: "{{else}}", Line: 4, Indent: 0},
+				{Type: types.TokenText, Value: "  not found\n", Line: 5, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+			},
+			values:   map[string]interface{}{},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  not found\n", Line: 5, Indent: 2},
+			},
+		},
+		{
+			name: "with deep nested expression, rescopes correctly",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.app.server}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  host: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.host}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n  port: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.port}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"app": map[string]interface{}{
+					"server": map[string]interface{}{
+						"host": "localhost",
+						"port": "8080",
+					},
+				},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "  host: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "localhost", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n  port: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "8080", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "with nested inside if, both truthy",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.enabled}}", Line: 2, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"enabled": true,
+				"config":  map[string]interface{}{"name": "myconfig"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "myconfig", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+			},
+		},
+		{
+			name: "with nested inside if, if false skips with",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{if .Values.enabled}}", Line: 2, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 4, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 7, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"enabled": false,
+				"config":  map[string]interface{}{"name": "myconfig"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 7, Indent: 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := createCtx(tt.values)
+			nodes, err := ast.ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			result, err := eval.EvaluateAST(nodes, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestEvaluateAST_WithNested(t *testing.T) {
+	createCtx := func(values map[string]interface{}) *types.EvalContext {
+		return eval.NewEvalContext(values, map[string]interface{}{"name": "test"})
+	}
+
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		values   map[string]interface{}
+		expected []types.Token
+	}{
+		{
+			name: "with inside with, both truthy",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.app}}", Line: 2, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .server}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  host: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.host}}", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"app": map[string]interface{}{
+					"server": map[string]interface{}{
+						"host": "localhost",
+					},
+				},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  host: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "localhost", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+			},
+		},
+		{
+			name: "with inside with, inner falsy falls to else",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.app}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  name: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .server}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  host: value\n", Line: 4, Indent: 2},
+				{Type: types.TokenElse, Value: "{{else}}", Line: 5, Indent: 0},
+				{Type: types.TokenText, Value: "  no server\n", Line: 6, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 7, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 8, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"app": map[string]interface{}{"name": "myapp"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "  name: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "myapp", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  no server\n", Line: 6, Indent: 2},
+			},
+		},
+		{
+			name: "with inside with, outer falsy skips everything",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.app}}", Line: 2, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .server}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  host: value\n", Line: 4, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 6, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 7, Indent: 0},
+			},
+			values:   map[string]interface{}{},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "after\n", Line: 7, Indent: 0},
+			},
+		},
+		{
+			name: "with inside range, rescopes per iteration",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.key}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items": []interface{}{
+					map[string]interface{}{"config": map[string]interface{}{"key": "val1"}},
+					map[string]interface{}{"config": map[string]interface{}{"key": "val2"}},
+				},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "val1", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "val2", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "with inside range, some items missing key skips those",
+			tokens: []types.Token{
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.key}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items": []interface{}{
+					map[string]interface{}{"config": map[string]interface{}{"key": "val1"}},
+					map[string]interface{}{"name": "noconfig"},
+					map[string]interface{}{"config": map[string]interface{}{"key": "val3"}},
+				},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "val1", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "val3", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "range inside with, with rescopes then range iterates",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenRange, Value: "{{range .items}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "- ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{
+					"items": []interface{}{"a", "b", "c"},
+				},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "- ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "a", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "- ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "b", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "- ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "c", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := createCtx(tt.values)
+			nodes, err := ast.ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			result, err := eval.EvaluateAST(nodes, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}

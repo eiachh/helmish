@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  {{ range .Values.containers }}
+  container-name: {{ .name }}
+  container-image: {{ .image }}
+  {{ with .resources }}
+  cpu: {{ .cpu }}
+  memory: {{ .memory }}
+  {{ else }}
+  cpu: "100m"
+  memory: "64Mi"
+  {{ end }}
+  {{ end }}

@@ -1,0 +1,12 @@
+ingress:
+  hostname: "app.example.com"
+  paths:
+    - path: "/api"
+      service: "api-svc"
+      port: "8080"
+    - path: "/web"
+      service: "web-svc"
+      port: "3000"
+    - path: "/docs"
+      service: "docs-svc"
+      port: "8000"
