@@ -1,0 +1,6 @@
+apiVersion: v2
+name: with-else-example
+description: With/else block to provide defaults when a section is missing
+type: application
+version: 0.1.0
+appVersion: "1.0"

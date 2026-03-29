@@ -540,3 +540,141 @@ func TestParseAST_Range(t *testing.T) {
 		})
 	}
 }
+
+func TestParseAST_With(t *testing.T) {
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		expected func([]Node) bool
+	}{
+		{
+			name: "simple with",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  key: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				withNode, ok := nodes[0].(*WithNode)
+				if !ok {
+					return false
+				}
+				if withNode.Expression != ".Values.config" {
+					return false
+				}
+				if len(withNode.Body) != 3 {
+					return false
+				}
+				if len(withNode.Else) != 0 {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "with else",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  found\n", Line: 2, Indent: 2},
+				{Type: types.TokenElse, Value: "{{else}}", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "  not found\n", Line: 4, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				withNode, ok := nodes[0].(*WithNode)
+				if !ok {
+					return false
+				}
+				if withNode.Expression != ".Values.config" {
+					return false
+				}
+				if len(withNode.Body) != 1 {
+					return false
+				}
+				if len(withNode.Else) != 1 {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "with nested inside if",
+			tokens: []types.Token{
+				{Type: types.TokenIf, Value: "{{if .Values.enabled}}", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  key: value\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				ifNode, ok := nodes[0].(*IfNode)
+				if !ok {
+					return false
+				}
+				if len(ifNode.Then) != 1 {
+					return false
+				}
+				withNode, ok := ifNode.Then[0].(*WithNode)
+				if !ok {
+					return false
+				}
+				if withNode.Expression != ".Values.config" {
+					return false
+				}
+				if len(withNode.Body) != 1 {
+					return false
+				}
+				return true
+			},
+		},
+		{
+			name: "with deep nested expression",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.app.server.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  port: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.port}}", Line: 2, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			expected: func(nodes []Node) bool {
+				if len(nodes) != 1 {
+					return false
+				}
+				withNode, ok := nodes[0].(*WithNode)
+				if !ok {
+					return false
+				}
+				if withNode.Expression != ".Values.app.server.config" {
+					return false
+				}
+				if len(withNode.Body) != 3 {
+					return false
+				}
+				return true
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nodes, err := ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			if !tt.expected(nodes) {
+				t.Errorf("Parsed nodes did not match expected structure")
+			}
+		})
+	}
+}

@@ -97,6 +97,8 @@ func classifyAction(action string) types.TokenType {
 		return types.TokenEnd
 	} else if strings.HasPrefix(inner, "range ") || inner == "range" {
 		return types.TokenRange
+	} else if strings.HasPrefix(inner, "with ") || inner == "with" {
+		return types.TokenWith
 	}
 	return types.TokenAction
 }

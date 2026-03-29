@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  {{ with .Values.app }}
+  app-name: {{ .name }}
+  {{ with .frontend }}
+  frontend-image: {{ .image }}
+  frontend-port: {{ .port }}
+  {{ end }}
+  {{ with .backend }}
+  backend-image: {{ .image }}
+  backend-port: {{ .port }}
+  {{ with .database }}
+  db-host: {{ .host }}
+  db-port: {{ .port }}
+  db-name: {{ .name }}
+  {{ end }}
+  {{ end }}
+  {{ end }}

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  {{ with .Values.resources }}
+  {{ with .limits }}
+  cpu-limit: {{ .cpu }}
+  memory-limit: {{ .memory }}
+  {{ end }}
+  {{ with .requests }}
+  cpu-request: {{ .cpu }}
+  memory-request: {{ .memory }}
+  {{ end }}
+  {{ else }}
+  cpu-limit: "100m"
+  memory-limit: "64Mi"
+  cpu-request: "50m"
+  memory-request: "32Mi"
+  {{ end }}

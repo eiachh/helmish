@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  {{ with .Values.server }}
+  host: {{ .host }}
+  port: {{ .port }}
+  protocol: {{ .protocol }}
+  {{ end }}

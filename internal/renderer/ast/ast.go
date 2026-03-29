@@ -254,6 +254,40 @@ func (n *RangeNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 	return nil
 }
 
+// WithNode represents a with node that re-scopes the context
+type WithNode struct {
+	Expression string // The expression to evaluate and re-scope to
+	Body       []Node
+	Else       []Node
+}
+
+// Eval evaluates the with node
+func (n *WithNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
+	// Get the value for the expression
+	result, err := ctx.GetValue(n.Expression)
+	if err != nil || !types.IsTruthy(result) {
+		// Value doesn't exist or is falsy, execute else branch
+		for _, node := range n.Else {
+			if err := node.Eval(ctx, out); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Create a new context with the value as the new scope
+	withCtx := &types.EvalContext{
+		Values: result,
+		Chart:  ctx.Chart,
+	}
+	for _, node := range n.Body {
+		if err := node.Eval(withCtx, out); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ParseAST parses a list of tokens into an AST
 func ParseAST(tokens []types.Token) ([]Node, error) {
 	nodes, _ := parseBlock(tokens, 0)
@@ -310,6 +344,26 @@ func parseBlock(tokens []types.Token, start int, terminators ...types.TokenType)
 				i++
 			}
 			nodes = append(nodes, rangeNode)
+			continue
+		case types.TokenWith:
+			// Parse with expression
+			inner := strings.TrimSpace(strings.TrimSuffix(tokens[i].Value, "}}")[2:])
+			withExpr := strings.TrimSpace(inner[4:]) // remove "with"
+			withNode := &WithNode{Expression: withExpr}
+			i++
+			bodyNodes, newI := parseBlock(tokens, i, types.TokenElse, types.TokenEnd)
+			withNode.Body = bodyNodes
+			i = newI
+			if i < len(tokens) && tokens[i].Type == types.TokenElse {
+				i++
+				elseNodes, newI := parseBlock(tokens, i, types.TokenEnd)
+				withNode.Else = elseNodes
+				i = newI
+			}
+			if i < len(tokens) && tokens[i].Type == types.TokenEnd {
+				i++
+			}
+			nodes = append(nodes, withNode)
 			continue
 		default:
 			// Skip other tokens for now

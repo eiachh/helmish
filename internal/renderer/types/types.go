@@ -16,6 +16,7 @@ const (
 	TokenElse
 	TokenEnd
 	TokenRange
+	TokenWith
 	TokenAction
 )
 
@@ -32,6 +33,8 @@ func (t TokenType) String() string {
 		return "End"
 	case TokenRange:
 		return "Range"
+	case TokenWith:
+		return "With"
 	case TokenAction:
 		return "Action"
 	default:
