@@ -1,0 +1,6 @@
+apiVersion: v2
+name: range-root-context
+description: Demonstrates using $ to access the root context from inside a range block
+type: application
+version: 0.1.0
+appVersion: "1.0"

@@ -19,5 +19,5 @@ func EvaluateAST(nodes []ast.Node, ctx *types.EvalContext) ([]types.Token, error
 
 // NewEvalContext creates a new evaluation context with the given values and chart
 func NewEvalContext(values, chart interface{}) *types.EvalContext {
-	return &types.EvalContext{Values: values, Chart: chart}
+	return &types.EvalContext{Values: values, Chart: chart, Root: values}
 }
