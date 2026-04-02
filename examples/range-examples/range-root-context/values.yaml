@@ -1,0 +1,15 @@
+app:
+  name: myapp
+  environment: production
+
+server:
+  host: localhost
+  port: 8080
+
+items:
+  - name: item1
+    value: first
+  - name: item2
+    value: second
+
+globalPrefix: "[root]"

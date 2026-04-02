@@ -222,6 +222,7 @@ func (n *RangeNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 			itemCtx := &types.EvalContext{
 				Values: item,
 				Chart:  ctx.Chart,
+				Root:   ctx.Root,
 			}
 			// Evaluate each node in the body
 			for _, node := range n.Body {
@@ -237,6 +238,7 @@ func (n *RangeNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 			itemCtx := &types.EvalContext{
 				Values: value,
 				Chart:  ctx.Chart,
+				Root:   ctx.Root,
 			}
 			// Evaluate each node in the body
 			for _, node := range n.Body {
@@ -279,6 +281,7 @@ func (n *WithNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 	withCtx := &types.EvalContext{
 		Values: result,
 		Chart:  ctx.Chart,
+		Root:   ctx.Root,
 	}
 	for _, node := range n.Body {
 		if err := node.Eval(withCtx, out); err != nil {

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  # Using $ inside a "range" block
+  # Inside "range .Values.items", "." refers to each item in the list.
+  # We use $ to access values from the root context.
+  items-with-root-context: |
+    {{ range .Values.items }}
+    - {{ $.Values.globalPrefix }} {{ .name }} = {{ .value }} (app: {{ $.Values.app.name }})
+    {{ end }}
+
+  # Nesting with inside range
+  # The $ always refers back to the original root, no matter how deep.
+  nested-scoping-demo: |
+    {{ range .Values.items }}
+    - item: {{ .name }}
+      root-app: {{ $.Values.app.name }}
+      {{ with $.Values.server }}
+      from-server-via-$: {{ .host }}:{{ .port }}
+      {{ end }}
+    {{ end }}

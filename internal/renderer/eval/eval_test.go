@@ -1158,3 +1158,123 @@ func TestEvaluateAST_WithNested(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateAST_RootContext(t *testing.T) {
+	// Helper to create EvalContext with given values
+	createCtx := func(values map[string]interface{}) *types.EvalContext {
+		return eval.NewEvalContext(values, map[string]interface{}{"name": "test"})
+	}
+
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		values   map[string]interface{}
+		expected []types.Token
+	}{
+		{
+			name: "using $ inside with to access root values",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  inside: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.name}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n  from-root: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "{{$.Values.global}}", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 5, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{"name": "myconfig"},
+				"global": "root-value",
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  inside: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "\n  from-root: ", Line: 4, Indent: 2},
+				{Type: types.TokenAction, Value: "root-value", Line: 4, Indent: 2},
+				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
+			},
+		},
+		{
+			name: "using $ inside range to access root values",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "items:\n", Line: 1, Indent: 0},
+				{Type: types.TokenRange, Value: "{{range .Values.items}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "  - ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{.}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: " (root: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "{{$.Values.prefix}}", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: ")\n", Line: 3, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"items":  []interface{}{"a", "b"},
+				"prefix": "test",
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "items:\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "  - ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "a", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: " (root: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "test", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: ")\n", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: "  - ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "b", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: " (root: ", Line: 3, Indent: 2},
+				{Type: types.TokenAction, Value: "test", Line: 3, Indent: 2},
+				{Type: types.TokenText, Value: ")\n", Line: 3, Indent: 2},
+			},
+		},
+		{
+			name: "$ alone inside with returns the root map",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{$}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{"name": "myconfig"},
+				"extra":  "data",
+			},
+			expected: []types.Token{
+				// The root map rendered as string representation
+				// (the ActionNode uses fmt.Sprintf("%v", resultVal))
+				{Type: types.TokenAction, Value: "map[config:map[name:myconfig] extra:data]", Line: 2, Indent: 2},
+			},
+		},
+		{
+			name: "$.Chart accessible from inside with",
+			tokens: []types.Token{
+				{Type: types.TokenWith, Value: "{{with .Values.config}}", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "chart: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "{{$.Chart.name}}", Line: 2, Indent: 2},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{
+				"config": map[string]interface{}{"name": "myconfig"},
+			},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "chart: ", Line: 2, Indent: 2},
+				{Type: types.TokenAction, Value: "test", Line: 2, Indent: 2},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := createCtx(tt.values)
+			nodes, err := ast.ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			result, err := eval.EvaluateAST(nodes, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}

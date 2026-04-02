@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  # Using $ inside a "with" block
+  # Inside "with .Values.server", "." refers to the server map.
+  # We use $ to access values from the root context.
+  {{ with .Values.server }}
+  server-host: {{ .host }}
+  server-port: {{ .port }}
+  # Access root-level values using $
+  app-name: {{ $.Values.app.name }}
+  app-environment: {{ $.Values.app.environment }}
+  # Access chart metadata via $.Chart
+  chart-name: {{ $.Chart.name }}
+  {{ end }}

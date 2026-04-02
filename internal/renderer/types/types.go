@@ -60,6 +60,7 @@ type TemplateData struct {
 type EvalContext struct {
 	Values interface{}
 	Chart  interface{}
+	Root   interface{} // always points to the original root values (for $)
 }
 
 // Evaluate evaluates the given expression using the context
@@ -74,7 +75,8 @@ func (ec *EvalContext) Evaluate(expr string) (interface{}, error) {
 
 	// Try to get the value directly first (for field access like .name, .Values.items, etc.)
 	// This handles range contexts properly where . refers to the current item
-	if strings.HasPrefix(inner, ".") {
+	// Also handles $ and $. which reference the root context
+	if strings.HasPrefix(inner, ".") || strings.HasPrefix(inner, "$") {
 		val, err := ec.GetValue(inner)
 		if err == nil {
 			return val, nil
@@ -101,7 +103,8 @@ func (ec *EvalContext) EvaluateSimple(expr string) (interface{}, error) {
 
 	// Try to get the value directly first (for field access like .name, .Values.items, etc.)
 	// This handles range contexts properly where . refers to the current item
-	if strings.HasPrefix(inner, ".") {
+	// Also handles $ and $. which reference the root context
+	if strings.HasPrefix(inner, ".") || strings.HasPrefix(inner, "$") {
 		val, err := ec.GetValue(inner)
 		if err == nil {
 			return val, nil
@@ -149,6 +152,25 @@ func (ec *EvalContext) GetValue(path string) (interface{}, error) {
 	// Handle the root
 	if path == "." {
 		return ec.Values, nil
+	}
+
+	// Handle $ (root context) — always refers back to the original root values
+	if path == "$" {
+		return ec.Root, nil
+	}
+
+	// Handle $.something — resolve from the root context
+	if strings.HasPrefix(path, "$.") {
+		if ec.Root == nil {
+			return nil, fmt.Errorf("root context is nil")
+		}
+		// Create a temporary context rooted at Root to resolve the rest of the path
+		rootCtx := &EvalContext{
+			Values: ec.Root,
+			Chart:  ec.Chart,
+			Root:   ec.Root,
+		}
+		return rootCtx.GetValue("." + path[2:]) // $.foo -> .foo
 	}
 
 	// Remove leading dot if present
