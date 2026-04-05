@@ -1,0 +1,6 @@
+apiVersion: v2
+name: trimming-example
+description: An example chart to test {{- and -}} whitespace trimming cases
+type: application
+version: 0.1.0
+appVersion: "1.0"

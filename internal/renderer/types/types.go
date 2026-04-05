@@ -44,10 +44,12 @@ func (t TokenType) String() string {
 
 // Token represents a single token in the template
 type Token struct {
-	Type  TokenType
-	Value string
-	Line   int
-	Indent int
+	Type       TokenType
+	Value      string
+	Line       int
+	Indent     int
+	TrimLeft   bool // true if action started with {{-
+	TrimRight  bool // true if action ended with -}}
 }
 
 // TemplateData holds the data passed to templates

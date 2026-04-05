@@ -43,6 +43,13 @@ func tokenizeContent(content string, startLine int, indent int) []types.Token {
 			// Start of an action
 			start := i
 			i += 2
+			trimLeft := false
+			trimRight := false
+			// Check for {{- (trim whitespace to the left)
+			if i < len(content) && content[i] == '-' {
+				trimLeft = true
+				i++
+			}
 			braceCount := 1
 			for i < len(content) && braceCount > 0 {
 				if content[i] == '\n' {
@@ -51,6 +58,11 @@ func tokenizeContent(content string, startLine int, indent int) []types.Token {
 				} else if strings.HasPrefix(content[i:], "{{") {
 					braceCount++
 					i += 2
+				} else if strings.HasPrefix(content[i:], "-}}") {
+					// Check for -}} (trim whitespace to the right)
+					trimRight = true
+					braceCount--
+					i += 3
 				} else if strings.HasPrefix(content[i:], "}}") {
 					braceCount--
 					i += 2
@@ -59,9 +71,17 @@ func tokenizeContent(content string, startLine int, indent int) []types.Token {
 				}
 			}
 			action := content[start:i]
+			// Strip the whitespace control markers from the action value
+			// so downstream code sees clean {{...}} syntax
+			if trimLeft && len(action) > 2 && action[2] == '-' {
+				action = action[:2] + action[3:]
+			}
+			if trimRight && len(action) >= 4 && action[len(action)-3] == '-' {
+				action = action[:len(action)-3] + action[len(action)-2:]
+			}
 			// Classify the action
 			tokenType := classifyAction(action)
-			tokens = append(tokens, types.Token{Type: tokenType, Value: action, Line: line, Indent: indent})
+			tokens = append(tokens, types.Token{Type: tokenType, Value: action, Line: line, Indent: indent, TrimLeft: trimLeft, TrimRight: trimRight})
 		} else {
 			// Text until next {{ or newline
 			start := i
