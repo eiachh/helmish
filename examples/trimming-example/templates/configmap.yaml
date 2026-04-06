@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.name }}-configmap
+data:
+  leftTrim: |-
+    before{{- .Values.prefix }}after
+
+  rightTrim: |-
+    before{{ .Values.suffix -}}after
+
+  bothTrim: |-
+    before{{- .Values.item1 -}}after
+
+
+  lineTrimLeft:
+    key: value
+    {{- .Values.item2 }}
+    anotherKey: anotherValue
+
+  lineTrimRight:
+    key: value
+    {{ .Values.item1 -}}
+    anotherKey: anotherValue
+
+  lineTrimBoth:
+    key: value
+    {{- .Values.item2 -}}
+    anotherKey: anotherValue
+
+  {{ if .Values.showExtra }}
+  withIfNoTrim:
+    extra: {{ .Values.extraValue }}
+  {{ end }}
+
+  {{ if .Values.showExtra }}
+  withIfTrimLeft:
+    extra:{{- .Values.extraValue }}
+  {{ end }}
+
+  {{ if .Values.showExtra }}
+  withIfTrimRight:
+    extra: {{ .Values.extraValue -}}
+  {{ end -}}
+
+  {{ if .Values.showExtra }}
+  withIfTrimBoth:
+    extra:{{- .Values.extraValue -}}
+  {{ end }}
+
+  {{ if .Values.showExtra }}
+  conditionalTrimmed:{{- .Values.extraValue -}}
+  {{ else }}
+  conditionalTrimmed: fallback
+  {{ end }}

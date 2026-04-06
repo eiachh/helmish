@@ -3,6 +3,7 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -91,6 +92,27 @@ func LoadChart(path string) (types.Chart, error) {
 	return chart, nil
 }
 
+// formatTokens cleans up a token stream by removing text tokens that contain
+// only whitespace or newlines, and trimming leading/trailing whitespace from
+// text tokens that have actual content.
+func formatTokens(tokens []types.Token) []types.Token {
+	var result []types.Token
+	for _, tok := range tokens {
+		if tok.Type == types.TokenText {
+			// Trim the text value
+			trimmed := strings.Trim(tok.Value, " \t\n\r")
+			// If there's no content left after trimming, skip this token entirely
+			if trimmed == "" {
+				continue
+			}
+			// Otherwise, use the trimmed value
+			tok.Value = trimmed
+		}
+		result = append(result, tok)
+	}
+	return result
+}
+
 // RenderChart renders the Helm chart using the TUI
 func RenderChart(opts Options) (map[string][][]types.Token, error) {
 	result := make(map[string][][]types.Token)
@@ -107,6 +129,8 @@ func RenderChart(opts Options) (map[string][][]types.Token, error) {
 		blocks := parser.CollectBlocks(content)
 		for _, doc := range blocks {
 			tokens := tokens.Tokenize(doc)
+			// Format tokens: remove whitespace-only text tokens and trim the rest
+			tokens = formatTokens(tokens)
 			// Parse AST from tokens
 			nodes, err := ast.ParseAST(tokens)
 			if err != nil {

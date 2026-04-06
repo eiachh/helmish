@@ -1,0 +1,6 @@
+prefix: "my-prefix"
+suffix: "my-suffix"
+item1: "first item"
+item2: "second item"
+showExtra: true
+extraValue: "extra content"
