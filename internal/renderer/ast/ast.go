@@ -158,10 +158,12 @@ func (n *ActionNode) Eval(ctx *types.EvalContext, out *[]types.Token) error {
 	// Create a new token with the evaluated value instead of modifying in place
 	// This is important for range loops where the same action is evaluated multiple times
 	evaluatedToken := types.Token{
-		Type:   n.Token.Type,
-		Value:  fmt.Sprintf("%v", resultVal),
-		Line:   n.Token.Line,
-		Indent: n.Token.Indent,
+		Type:      n.Token.Type,
+		Value:     fmt.Sprintf("%v", resultVal),
+		Line:      n.Token.Line,
+		Indent:    n.Token.Indent,
+		TrimLeft:  n.Token.TrimLeft,
+		TrimRight: n.Token.TrimRight,
 	}
 	*out = append(*out, evaluatedToken)
 	return nil

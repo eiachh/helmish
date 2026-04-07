@@ -1278,3 +1278,227 @@ func TestEvaluateAST_RootContext(t *testing.T) {
 		})
 	}
 }
+
+func TestEvaluateAST_Trimming(t *testing.T) {
+	// Helper to create EvalContext with given values
+	createCtx := func(values map[string]interface{}) *types.EvalContext {
+		return eval.NewEvalContext(values, map[string]interface{}{"name": "test"})
+	}
+
+	tests := []struct {
+		name     string
+		tokens   []types.Token
+		values   map[string]interface{}
+		expected []types.Token
+	}{
+		{
+			name: "TrimLeft removes trailing whitespace from preceding text",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before   ", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.prefix}}", Line: 1, Indent: 0, TrimLeft: true},
+			},
+			values: map[string]interface{}{"prefix": "my-prefix"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "my-prefix", Line: 1, Indent: 0, TrimLeft: true},
+			},
+		},
+		{
+			name: "TrimLeft removes newline from preceding text",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "line1\n    ", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.prefix}}", Line: 2, Indent: 0, TrimLeft: true},
+			},
+			values: map[string]interface{}{"prefix": "my-prefix"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "line1", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "my-prefix", Line: 2, Indent: 0, TrimLeft: true},
+			},
+		},
+		{
+			name: "TrimRight removes leading whitespace from following text",
+			tokens: []types.Token{
+				{Type: types.TokenAction, Value: "{{ .Values.suffix -}}", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "   after", Line: 1, Indent: 0},
+			},
+			values: map[string]interface{}{"suffix": "my-suffix"},
+			expected: []types.Token{
+				{Type: types.TokenAction, Value: "my-suffix", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "after", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "TrimRight removes newline from following text",
+			tokens: []types.Token{
+				{Type: types.TokenAction, Value: "{{ .Values.suffix -}}", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "\n    after", Line: 2, Indent: 0},
+			},
+			values: map[string]interface{}{"suffix": "my-suffix"},
+			expected: []types.Token{
+				{Type: types.TokenAction, Value: "my-suffix", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "after", Line: 2, Indent: 0},
+			},
+		},
+		{
+			name: "Both TrimLeft and TrimRight together",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before   ", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.item1 -}}", Line: 1, Indent: 0, TrimLeft: true, TrimRight: true},
+				{Type: types.TokenText, Value: "   after", Line: 1, Indent: 0},
+			},
+			values: map[string]interface{}{"item1": "first item"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "first item", Line: 1, Indent: 0, TrimLeft: true, TrimRight: true},
+				{Type: types.TokenText, Value: "after", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "TrimLeft across multiple whitespace-only tokens",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "text\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "   \n", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "    ", Line: 3, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.prefix}}", Line: 3, Indent: 0, TrimLeft: true},
+			},
+			values: map[string]interface{}{"prefix": "my-prefix"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "text", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 3, Indent: 0},
+				{Type: types.TokenAction, Value: "my-prefix", Line: 3, Indent: 0, TrimLeft: true},
+			},
+		},
+		{
+			name: "TrimRight across multiple whitespace-only tokens",
+			tokens: []types.Token{
+				{Type: types.TokenAction, Value: "{{ .Values.suffix -}}", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "    ", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "\n   ", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "after", Line: 2, Indent: 0},
+			},
+			values: map[string]interface{}{"suffix": "my-suffix"},
+			expected: []types.Token{
+				{Type: types.TokenAction, Value: "my-suffix", Line: 1, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "after", Line: 2, Indent: 0},
+			},
+		},
+		{
+			name: "TrimLeft stops at non-text token",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "text\n", Line: 1, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "    ", Line: 3, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.prefix}}", Line: 3, Indent: 0, TrimLeft: true},
+			},
+			values: map[string]interface{}{"prefix": "my-prefix"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "text\n", Line: 1, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 3, Indent: 0},
+				{Type: types.TokenAction, Value: "my-prefix", Line: 3, Indent: 0, TrimLeft: true},
+			},
+		},
+		{
+			name: "No trimming when flags are false",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before   ", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{.Values.prefix}}", Line: 1, Indent: 0, TrimLeft: false},
+				{Type: types.TokenText, Value: "   after", Line: 1, Indent: 0},
+			},
+			values: map[string]interface{}{"prefix": "my-prefix"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before   ", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "my-prefix", Line: 1, Indent: 0, TrimLeft: false},
+				{Type: types.TokenText, Value: "   after", Line: 1, Indent: 0},
+			},
+		},
+		{
+			name: "lineTrimLeft example from trimming-example",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "    key: value\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "    ", Line: 2, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.item2}}", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "    anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{"item2": "second item"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "    key: value", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenAction, Value: "second item", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "    anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "lineTrimRight example from trimming-example",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "    key: value\n", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "{{ .Values.item1 -}}", Line: 2, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "    ", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "\n    anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{"item1": "first item"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "    key: value\n", Line: 1, Indent: 0},
+				{Type: types.TokenAction, Value: "first item", Line: 2, Indent: 0, TrimRight: true},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "lineTrimBoth example from trimming-example",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "    key: value\n", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "    ", Line: 2, Indent: 0},
+				{Type: types.TokenAction, Value: "{{- .Values.item2 -}}", Line: 2, Indent: 0, TrimLeft: true, TrimRight: true},
+				{Type: types.TokenText, Value: "    ", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "\n    anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+			values: map[string]interface{}{"item2": "second item"},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "    key: value", Line: 1, Indent: 0},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenAction, Value: "second item", Line: 2, Indent: 0, TrimLeft: true, TrimRight: true},
+				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
+				{Type: types.TokenText, Value: "anotherKey: anotherValue\n", Line: 3, Indent: 0},
+			},
+		},
+		{
+			name: "TrimLeft on control structure (if) trims before it",
+			tokens: []types.Token{
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{- if .Values.enabled}}", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenText, Value: "  yes\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+			values: map[string]interface{}{"enabled": true},
+			expected: []types.Token{
+				{Type: types.TokenText, Value: "before", Line: 1, Indent: 0},
+				{Type: types.TokenIf, Value: "{{- if .Values.enabled}}", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenText, Value: "  yes\n", Line: 3, Indent: 0},
+				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := createCtx(tt.values)
+			nodes, err := ast.ParseAST(tt.tokens)
+			if err != nil {
+				t.Fatalf("unexpected error parsing AST: %v", err)
+			}
+			result, err := eval.EvaluateAST(nodes, ctx)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
