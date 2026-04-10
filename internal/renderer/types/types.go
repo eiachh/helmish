@@ -270,7 +270,7 @@ type KeyValueBlock struct {
 // Raw returns the raw YAML key-value pair
 func (y KeyValueBlock) Raw() string {
 	if y.Value == "" {
-		return y.Key
+		return y.Key + ":"
 	}
 	return y.Key + ": " + y.Value
 }
@@ -278,7 +278,7 @@ func (y KeyValueBlock) Raw() string {
 // Rendered returns the rendered YAML key-value pair
 func (y KeyValueBlock) Rendered() string {
 	if y.Value == "" {
-		return y.Key
+		return y.Key + ":"
 	}
 	if strings.Contains(y.Value, "{{") && strings.Contains(y.Value, "}}") {
 		// Simulate rendering by wrapping in [rendered ...]

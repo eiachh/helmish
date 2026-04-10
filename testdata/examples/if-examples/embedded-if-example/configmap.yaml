@@ -1,0 +1,12 @@
+---
+# Source: embedded-if-example/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: embedded-if-example-configmap
+data:
+  staticText: static value
+  
+  outerValue: outer value
+  
+  innerValue: inner value

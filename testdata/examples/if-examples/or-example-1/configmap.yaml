@@ -1,0 +1,16 @@
+---
+# Source: or-example-1/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: or-example-1-configmap
+data:
+  before: Hello from values
+  
+  case1: bothTrue
+  
+  
+  case2: trueOrFalse
+  
+  
+  after: Goodbye from values
