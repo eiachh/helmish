@@ -3,6 +3,7 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -39,7 +40,7 @@ func LoadChart(path string) (types.Chart, error) {
 		}
 		chart.Metadata["Chart.yaml"] = types.ValueData{
 			Raw:    string(content),
-			Parsed: parsed,
+			Parsed: normalizeChartMetadata(parsed),
 		}
 	} else {
 		return chart, err
@@ -121,4 +122,75 @@ func RenderChart(opts Options) (map[string][][]types.Token, error) {
 		}
 	}
 	return result, nil
+}
+
+// normalizeChartMetadata converts map keys from YAML (lowercase) to Helm casing (Title)
+func normalizeChartMetadata(v interface{}) interface{} {
+	switch m := v.(type) {
+	case map[interface{}]interface{}:
+		out := make(map[interface{}]interface{}, len(m))
+		for k, val := range m {
+			key := normalizeKey(k)
+			out[key] = normalizeChartMetadata(val)
+		}
+		return out
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(m))
+		for k, val := range m {
+			key := normalizeKey(k)
+			out[key.(string)] = normalizeChartMetadata(val)
+		}
+		return out
+	case []interface{}:
+		for i, e := range m {
+			m[i] = normalizeChartMetadata(e)
+		}
+		return m
+	default:
+		return v
+	}
+}
+
+func normalizeKey(k interface{}) interface{} {
+	s, ok := k.(string)
+	if !ok {
+		return k
+	}
+	switch strings.ToLower(s) {
+	case "name":
+		return "Name"
+	case "home":
+		return "Home"
+	case "sources":
+		return "Sources"
+	case "version":
+		return "Version"
+	case "description":
+		return "Description"
+	case "keywords":
+		return "Keywords"
+	case "maintainers":
+		return "Maintainers"
+	case "engine":
+		return "Engine"
+	case "icon":
+		return "Icon"
+	case "appversion":
+		return "AppVersion"
+	case "deprecated":
+		return "Deprecated"
+	case "annotations":
+		return "Annotations"
+	case "kubeversion":
+		return "KubeVersion"
+	case "dependencies":
+		return "Dependencies"
+	case "type":
+		return "Type"
+	default:
+		if len(s) > 0 {
+			return strings.ToUpper(s[:1]) + s[1:]
+		}
+		return s
+	}
 }

@@ -1,0 +1,12 @@
+---
+# Source: if-else-example-1/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: if-else-example-1-configmap
+data:
+  staticBefore: This is static text
+  
+  ifContent: Content from if branch
+  
+  staticAfter: This is static text

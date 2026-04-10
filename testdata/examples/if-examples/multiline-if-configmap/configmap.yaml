@@ -1,0 +1,11 @@
+---
+# Source: multiline-if-configmap/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multiline-if-configmap-configmap
+data:
+  static-value: "this is a static value"
+  single-line-template: hello from single line template
+
+  multiline-conditional: world from multiline if

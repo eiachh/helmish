@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Chart.name }}-configmap
+  name: {{ .Chart.Name }}-configmap
 data:
   staticBefore: {{ .Values.staticText }}
   {{if .Values.condition1 }}
