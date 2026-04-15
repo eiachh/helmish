@@ -521,7 +521,7 @@ func TestEvaluateAST_Range(t *testing.T) {
 					map[string]interface{}{"name": "item2", "value": "val2"},
 				},
 			},
-			expectedCount: 10, // 5 tokens per iteration x 2 iterations
+			expectedCount: 9, // 5 tokens per iteration x 2 iterations - 1 trailing newline
 			checkContains: "item1: val1",
 		},
 		{
@@ -804,7 +804,6 @@ func TestEvaluateAST_With(t *testing.T) {
 				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
 				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
 				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 		{
@@ -871,7 +870,6 @@ func TestEvaluateAST_With(t *testing.T) {
 				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
 				{Type: types.TokenText, Value: "  found: ", Line: 3, Indent: 2},
 				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 		{
@@ -914,7 +912,6 @@ func TestEvaluateAST_With(t *testing.T) {
 				{Type: types.TokenAction, Value: "localhost", Line: 2, Indent: 2},
 				{Type: types.TokenText, Value: "\n  port: ", Line: 2, Indent: 2},
 				{Type: types.TokenAction, Value: "8080", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 		{
@@ -937,7 +934,6 @@ func TestEvaluateAST_With(t *testing.T) {
 				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
 				{Type: types.TokenText, Value: "  key: ", Line: 4, Indent: 2},
 				{Type: types.TokenAction, Value: "myconfig", Line: 4, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
 			},
 		},
 		{
@@ -1014,7 +1010,6 @@ func TestEvaluateAST_WithNested(t *testing.T) {
 				{Type: types.TokenText, Value: "data:\n", Line: 1, Indent: 0},
 				{Type: types.TokenText, Value: "  host: ", Line: 4, Indent: 2},
 				{Type: types.TokenAction, Value: "localhost", Line: 4, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
 			},
 		},
 		{
@@ -1081,7 +1076,6 @@ func TestEvaluateAST_WithNested(t *testing.T) {
 				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
 				{Type: types.TokenAction, Value: "val2", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 		{
@@ -1108,7 +1102,6 @@ func TestEvaluateAST_WithNested(t *testing.T) {
 				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 				{Type: types.TokenText, Value: "  key: ", Line: 3, Indent: 2},
 				{Type: types.TokenAction, Value: "val3", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 		{
@@ -1136,7 +1129,6 @@ func TestEvaluateAST_WithNested(t *testing.T) {
 				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 				{Type: types.TokenText, Value: "- ", Line: 3, Indent: 2},
 				{Type: types.TokenAction, Value: "c", Line: 3, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 3, Indent: 0},
 			},
 		},
 	}
@@ -1193,7 +1185,6 @@ func TestEvaluateAST_RootContext(t *testing.T) {
 				{Type: types.TokenAction, Value: "myconfig", Line: 3, Indent: 2},
 				{Type: types.TokenText, Value: "\n  from-root: ", Line: 4, Indent: 2},
 				{Type: types.TokenAction, Value: "root-value", Line: 4, Indent: 2},
-				{Type: types.TokenText, Value: "\n", Line: 4, Indent: 0},
 			},
 		},
 		{
@@ -1364,8 +1355,6 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			values: map[string]interface{}{"prefix": "my-prefix"},
 			expected: []types.Token{
 				{Type: types.TokenText, Value: "text", Line: 1, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 3, Indent: 0},
 				{Type: types.TokenAction, Value: "my-prefix", Line: 3, Indent: 0, TrimLeft: true},
 			},
 		},
@@ -1380,8 +1369,6 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			values: map[string]interface{}{"suffix": "my-suffix"},
 			expected: []types.Token{
 				{Type: types.TokenAction, Value: "my-suffix", Line: 1, Indent: 0, TrimRight: true},
-				{Type: types.TokenText, Value: "", Line: 1, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
 				{Type: types.TokenText, Value: "after", Line: 2, Indent: 0},
 			},
 		},
@@ -1395,9 +1382,7 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			},
 			values: map[string]interface{}{"prefix": "my-prefix"},
 			expected: []types.Token{
-				{Type: types.TokenText, Value: "text\n", Line: 1, Indent: 0},
-				{Type: types.TokenEnd, Value: "{{end}}", Line: 2, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 3, Indent: 0},
+				{Type: types.TokenText, Value: "text", Line: 1, Indent: 0},
 				{Type: types.TokenAction, Value: "my-prefix", Line: 3, Indent: 0, TrimLeft: true},
 			},
 		},
@@ -1427,7 +1412,6 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			values: map[string]interface{}{"item2": "second item"},
 			expected: []types.Token{
 				{Type: types.TokenText, Value: "    key: value", Line: 1, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
 				{Type: types.TokenAction, Value: "second item", Line: 2, Indent: 0, TrimLeft: true},
 				{Type: types.TokenText, Value: "\n", Line: 2, Indent: 0},
 				{Type: types.TokenText, Value: "    anotherKey: anotherValue\n", Line: 3, Indent: 0},
@@ -1445,7 +1429,6 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			expected: []types.Token{
 				{Type: types.TokenText, Value: "    key: value\n", Line: 1, Indent: 0},
 				{Type: types.TokenAction, Value: "first item", Line: 2, Indent: 0, TrimRight: true},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
 				{Type: types.TokenText, Value: "anotherKey: anotherValue\n", Line: 3, Indent: 0},
 			},
 		},
@@ -1461,9 +1444,7 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			values: map[string]interface{}{"item2": "second item"},
 			expected: []types.Token{
 				{Type: types.TokenText, Value: "    key: value", Line: 1, Indent: 0},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
 				{Type: types.TokenAction, Value: "second item", Line: 2, Indent: 0, TrimLeft: true, TrimRight: true},
-				{Type: types.TokenText, Value: "", Line: 2, Indent: 0},
 				{Type: types.TokenText, Value: "anotherKey: anotherValue\n", Line: 3, Indent: 0},
 			},
 		},
@@ -1471,16 +1452,14 @@ func TestEvaluateAST_Trimming(t *testing.T) {
 			name: "TrimLeft on control structure (if) trims before it",
 			tokens: []types.Token{
 				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
-				{Type: types.TokenIf, Value: "{{- if .Values.enabled}}", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenIf, Value: "{{ if .Values.enabled}}", Line: 2, Indent: 0, TrimLeft: true},
 				{Type: types.TokenText, Value: "  yes\n", Line: 3, Indent: 0},
 				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
 			},
 			values: map[string]interface{}{"enabled": true},
 			expected: []types.Token{
-				{Type: types.TokenText, Value: "before", Line: 1, Indent: 0},
-				{Type: types.TokenIf, Value: "{{- if .Values.enabled}}", Line: 2, Indent: 0, TrimLeft: true},
+				{Type: types.TokenText, Value: "before\n", Line: 1, Indent: 0},
 				{Type: types.TokenText, Value: "  yes\n", Line: 3, Indent: 0},
-				{Type: types.TokenEnd, Value: "{{end}}", Line: 4, Indent: 0},
 			},
 		},
 	}

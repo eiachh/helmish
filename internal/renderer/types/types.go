@@ -263,12 +263,19 @@ type BlockContent interface {
 
 // KeyValueBlock represents a YAML key-value pair (or key only if value is empty)
 type KeyValueBlock struct {
-	Key   string
-	Value string
+	Key     string
+	Value   string
+	RawLine string // Full raw line including indentation
+	Indent  int    // Indentation level (number of leading spaces)
 }
 
 // Raw returns the raw YAML key-value pair
 func (y KeyValueBlock) Raw() string {
+	// Return the full raw line if available (preserves indentation)
+	if y.RawLine != "" {
+		return y.RawLine
+	}
+	// Fallback for backwards compatibility
 	if y.Value == "" {
 		return y.Key + ":"
 	}

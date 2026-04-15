@@ -1,0 +1,4 @@
+apiVersion: v2
+description: A chart without a name field
+type: application
+version: 0.1.0

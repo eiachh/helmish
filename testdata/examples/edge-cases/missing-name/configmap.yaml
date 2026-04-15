@@ -1,0 +1,8 @@
+---
+# Source: unknown/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configmap
+data:
+  message: test

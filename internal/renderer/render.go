@@ -104,6 +104,10 @@ func RenderChart(opts Options) (map[string][][]types.Token, error) {
 		chart = meta.Parsed
 	}
 	ctx := eval.NewEvalContext(values, chart)
+
+	// Extract chart name for header
+	chartName := getChartName(opts.Chart)
+
 	for filename, content := range opts.Chart.YamlTemplates {
 		blocks := parser.CollectBlocks(content)
 		for _, doc := range blocks {
@@ -118,10 +122,33 @@ func RenderChart(opts Options) (map[string][][]types.Token, error) {
 			if err != nil {
 				return nil, err
 			}
-			result[filename] = append(result[filename], evaluatedTokens)
+			// Prepend header tokens: --- and # Source: <chart>/templates/<filename>
+			// Each header line is a separate []Token slice (each slice = one line)
+			result[filename] = append(result[filename],
+				[]types.Token{{Type: types.TokenText, Value: "---"}},
+				[]types.Token{{Type: types.TokenText, Value: "# Source: " + chartName + "/templates/" + filename}},
+				evaluatedTokens,
+			)
 		}
 	}
 	return result, nil
+}
+
+// getChartName extracts the chart name from metadata
+func getChartName(chart types.Chart) string {
+	if meta, ok := chart.Metadata["Chart.yaml"]; ok {
+		if m, ok := meta.Parsed.(map[string]interface{}); ok {
+			if name, ok := m["Name"].(string); ok {
+				return name
+			}
+		}
+		if m, ok := meta.Parsed.(map[interface{}]interface{}); ok {
+			if name, ok := m["Name"].(string); ok {
+				return name
+			}
+		}
+	}
+	return "unknown"
 }
 
 // normalizeChartMetadata converts map keys from YAML (lowercase) to Helm casing (Title)
