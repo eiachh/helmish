@@ -1,0 +1,5 @@
+apiVersion: v2
+name: multi-template-chart
+description: A chart with multiple templates
+type: application
+version: 0.1.0

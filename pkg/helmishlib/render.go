@@ -100,7 +100,8 @@ func (h *Helmish) Render(profile Profile) (map[string][][]Token, error) {
 
 // RenderTokensToString converts a 2D slice of tokens to a string representation.
 // Each inner slice represents a line (or document), and tokens are concatenated
-// to form the rendered output. Newlines are added between lines.
+// to form the rendered output. Newlines are added between lines, and a trailing
+// newline is added at the end to match helm template output.
 func RenderTokensToString(tokens [][]Token) string {
 	var result string
 	for i, line := range tokens {
@@ -111,7 +112,16 @@ func RenderTokensToString(tokens [][]Token) string {
 			result += tok.Value
 		}
 	}
+	// Add trailing newline to match helm template output
+	if len(result) > 0 && !endsWithNewline(result) {
+		result += "\n"
+	}
 	return result
+}
+
+// endsWithNewline checks if a string ends with a newline
+func endsWithNewline(s string) bool {
+	return len(s) > 0 && s[len(s)-1] == '\n'
 }
 
 // RenderAllFilesToString converts a map of files (each containing 2D token slices)

@@ -17,7 +17,27 @@ func EvaluateAST(nodes []ast.Node, ctx *types.EvalContext) ([]types.Token, error
 		}
 	}
 	applyWhitespaceTrimming(&result)
+	cleanupEmptyTokens(&result)
 	return result, nil
+}
+
+// cleanupEmptyTokens removes empty text tokens and trailing whitespace-only tokens
+func cleanupEmptyTokens(tokens *[]types.Token) {
+	// First pass: remove empty text tokens
+	var cleaned []types.Token
+	for _, tok := range *tokens {
+		if tok.Type == types.TokenText && tok.Value == "" {
+			continue
+		}
+		cleaned = append(cleaned, tok)
+	}
+
+	// Second pass: remove trailing whitespace-only tokens
+	for len(cleaned) > 0 && cleaned[len(cleaned)-1].Type == types.TokenText && isWhitespaceOnly(cleaned[len(cleaned)-1].Value) {
+		cleaned = cleaned[:len(cleaned)-1]
+	}
+
+	*tokens = cleaned
 }
 
 // applyWhitespaceTrimming processes TrimLeft and TrimRight flags on action tokens

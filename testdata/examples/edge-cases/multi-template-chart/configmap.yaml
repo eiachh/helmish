@@ -1,0 +1,8 @@
+---
+# Source: multi-template-chart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multi-template-chart-configmap
+data:
+  message: hello world

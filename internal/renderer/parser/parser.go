@@ -31,6 +31,11 @@ func CollectBlocks(content string) []types.DocumentBlocks {
 	i := 0
 	for i < len(lines) {
 		line := lines[i]
+		// Skip empty lines
+		if strings.TrimSpace(line) == "" {
+			i++
+			continue
+		}
 		if strings.TrimSpace(line) == "---" {
 			if len(current.Blocks) > 0 {
 				blocks = append(blocks, current)
@@ -67,11 +72,21 @@ func CollectBlocks(content string) []types.DocumentBlocks {
 					valuePart := line[colonIndex+1:]
 					value := strings.TrimSpace(valuePart)
 					block.Type = types.KeyValueBlockType
-					block.Content = &types.KeyValueBlock{Key: key, Value: value}
+					block.Content = &types.KeyValueBlock{
+						Key:     key,
+						Value:   value,
+						RawLine: line,
+						Indent:  indent,
+					}
 				} else {
 					key := strings.TrimSpace(line)
 					block.Type = types.KeyValueBlockType
-					block.Content = &types.KeyValueBlock{Key: key, Value: ""}
+					block.Content = &types.KeyValueBlock{
+						Key:     key,
+						Value:   "",
+						RawLine: line,
+						Indent:  indent,
+					}
 				}
 			}
 			current.Blocks = append(current.Blocks, block)
